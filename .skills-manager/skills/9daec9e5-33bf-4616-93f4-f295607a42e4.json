@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "9daec9e5-33bf-4616-93f4-f295607a42e4",
+  "path": "write-triton-gemm-kernel",
+  "path_key": "write-triton-gemm-kernel",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

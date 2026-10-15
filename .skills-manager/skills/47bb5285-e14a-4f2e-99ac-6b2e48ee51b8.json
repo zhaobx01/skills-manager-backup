@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "47bb5285-e14a-4f2e-99ac-6b2e48ee51b8",
+  "path": "torch-compile-integration",
+  "path_key": "torch-compile-integration",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

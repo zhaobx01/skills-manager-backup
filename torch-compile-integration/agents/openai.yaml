@@ -1,0 +1,3 @@
+interface:
+  display_name: "Torch Compile Integration"
+  short_description: "Choose compile boundaries and verify real performance"

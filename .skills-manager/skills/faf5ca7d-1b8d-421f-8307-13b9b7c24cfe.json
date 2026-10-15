@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "faf5ca7d-1b8d-421f-8307-13b9b7c24cfe",
+  "path": "write-triton-softmax-kernel",
+  "path_key": "write-triton-softmax-kernel",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

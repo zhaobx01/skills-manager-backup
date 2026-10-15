@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "ba9ce264-ba00-4f13-ae43-b35e25f4fc91",
+  "path": "analyze-memory-snapshot",
+  "path_key": "analyze-memory-snapshot",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

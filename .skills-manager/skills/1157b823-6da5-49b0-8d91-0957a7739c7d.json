@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "1157b823-6da5-49b0-8d91-0957a7739c7d",
+  "path": "fuse-elementwise-ops",
+  "path_key": "fuse-elementwise-ops",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

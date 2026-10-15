@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "311fd911-55a9-4ef4-b943-419ec1e3dbec",
+  "path": "handle-boundary-conditions",
+  "path_key": "handle-boundary-conditions",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

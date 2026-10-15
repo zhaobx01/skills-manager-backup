@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "f0870aa4-a88a-4f15-b865-51f61c0a4204",
+  "path": "write-triton-layernorm-kernel",
+  "path_key": "write-triton-layernorm-kernel",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

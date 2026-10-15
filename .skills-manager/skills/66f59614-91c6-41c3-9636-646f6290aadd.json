@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "66f59614-91c6-41c3-9636-646f6290aadd",
+  "path": "write-cuda-gemm-kernel",
+  "path_key": "write-cuda-gemm-kernel",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

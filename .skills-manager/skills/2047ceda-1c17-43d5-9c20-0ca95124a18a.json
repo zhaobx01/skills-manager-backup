@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "2047ceda-1c17-43d5-9c20-0ca95124a18a",
+  "path": "optimize-global-memory-access",
+  "path_key": "optimize-global-memory-access",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

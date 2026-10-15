@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "9ac5372c-e7b5-4a25-81b2-02e2f3b68f02",
+  "path": "write-cuda-layernorm-kernel",
+  "path_key": "write-cuda-layernorm-kernel",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

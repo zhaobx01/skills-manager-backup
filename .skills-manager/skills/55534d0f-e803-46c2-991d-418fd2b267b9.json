@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "55534d0f-e803-46c2-991d-418fd2b267b9",
+  "path": "write-vllm-custom-op-integration-plan",
+  "path_key": "write-vllm-custom-op-integration-plan",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

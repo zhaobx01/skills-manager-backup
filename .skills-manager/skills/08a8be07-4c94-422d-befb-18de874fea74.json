@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "08a8be07-4c94-422d-befb-18de874fea74",
+  "path": "optimize-triton-block-parameters",
+  "path_key": "optimize-triton-block-parameters",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

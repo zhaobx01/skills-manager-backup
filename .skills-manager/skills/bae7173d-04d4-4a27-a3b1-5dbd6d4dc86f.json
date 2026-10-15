@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "bae7173d-04d4-4a27-a3b1-5dbd6d4dc86f",
+  "path": "choose-tile-size-and-work-partitioning",
+  "path_key": "choose-tile-size-and-work-partitioning",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "421ac266-355e-4e5f-9504-04747d66beda",
+  "path": "port-cuda-kernel-to-triton",
+  "path_key": "port-cuda-kernel-to-triton",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

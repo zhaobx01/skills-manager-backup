@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "3b9cca32-fb3d-4d52-a5f9-9781745336ae",
+  "path": "write-triton-attention-kernel",
+  "path_key": "write-triton-attention-kernel",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

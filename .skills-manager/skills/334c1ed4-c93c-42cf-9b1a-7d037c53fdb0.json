@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "334c1ed4-c93c-42cf-9b1a-7d037c53fdb0",
+  "path": "debug-cuda-kernel-correctness",
+  "path_key": "debug-cuda-kernel-correctness",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

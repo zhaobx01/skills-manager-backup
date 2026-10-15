@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "305d51c2-9860-423d-8502-b9420165cf5f",
+  "path": "write-fp8-kernel",
+  "path_key": "write-fp8-kernel",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "e1eae121-1e84-427d-8a7d-88b3db4eedcd",
+  "path": "write-int8-quantized-kernel",
+  "path_key": "write-int8-quantized-kernel",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

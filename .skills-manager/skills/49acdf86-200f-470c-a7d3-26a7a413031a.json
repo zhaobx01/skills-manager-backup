@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "49acdf86-200f-470c-a7d3-26a7a413031a",
+  "path": "optimize-prefill-vs-decode-kernels",
+  "path_key": "optimize-prefill-vs-decode-kernels",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

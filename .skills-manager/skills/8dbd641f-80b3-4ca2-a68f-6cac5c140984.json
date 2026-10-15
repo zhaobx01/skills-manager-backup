@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "8dbd641f-80b3-4ca2-a68f-6cac5c140984",
+  "path": "choose-launch-configuration",
+  "path_key": "choose-launch-configuration",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

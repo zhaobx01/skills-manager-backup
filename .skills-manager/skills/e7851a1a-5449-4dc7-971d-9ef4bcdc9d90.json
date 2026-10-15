@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "e7851a1a-5449-4dc7-971d-9ef4bcdc9d90",
+  "path": "triton-kernels",
+  "path_key": "triton-kernels",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
