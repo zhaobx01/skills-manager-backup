@@ -2,7 +2,7 @@
 name: torch-compile-integration
 description: Analyze PyTorch source to choose torch.compile boundaries and insertion points, or implement and benchmark compilation when requested. Use for deciding which model, step, submodule, or tensor function to compile, adding compile switches, or comparing compilation scope. Route existing graph-break diagnosis to debug-graph-breaks when available.
 metadata:
-  version: "1.2.0"
+  version: "1.5.1"
 ---
 
 # Torch Compile Integration
@@ -11,9 +11,9 @@ metadata:
 
 ## 自包含与环境边界
 
-本 Skill 的全部指令、验证规范和案例均在本文件夹内，以相对链接加载。无需原作者电脑的文件、MapTRv2 源码、个人流程文档、其他 Skill 或联网即可读取并开展静态分析。不要尝试定位或补齐案例的原始磁盘目录、历史文件和哈希。
+本 Skill 的全部基础指令、验证规范和案例均在本文件夹内，以相对链接加载。无需原作者电脑的文件、MapTRv2/OpenVLA/TurboPhysAI 源码、个人流程文档、其他 Skill 或联网即可读取并开展静态分析。协作项不是硬依赖：任务触发时优先复用，缺少则按下述规则主动获取并使用；无法获取时保留包内降级。不要尝试定位或补齐案例的原始磁盘目录、历史文件和哈希。
 
-分析对象是用户当前提供的项目；未提供项目时先说明所需输入，不以包内 MapTRv2 案例替代实际目标。运行编译/精度/性能检查仍需目标项目自己的 Python、PyTorch、后端及适用硬件，本包不捆绑或自动安装这些环境。普通阅读和静态分析不以 PyTorch/GPU 可用为前提。
+分析对象是用户当前提供的项目；未提供项目时先说明所需输入，不以包内历史案例替代实际目标。运行编译/精度/性能检查仍需目标项目自己的 Python、PyTorch、后端及适用硬件，本包不捆绑或自动安装这些环境。普通阅读和静态分析不以 PyTorch/GPU 可用为前提。
 
 ## 工作模式
 
@@ -27,6 +27,8 @@ metadata:
 确认项目入口、模型构建与权重加载、设备迁移、训练/eval 状态、AMP、优化器、DDP/FSDP、checkpoint 和实际调用链。检查现有 compile 逻辑，避免重复包装。记录实际 Python、PyTorch、加速后端与硬件版本，不为方便接入而擅自升级环境。
 
 从配置和 registry 确定实际模型类型、继承关系及覆盖方法；把“源码有装饰器”“配置可达”“运行时确实捕获/执行”“性能已验证”分开记录。扫描同名函数和继承实现时使用类限定名称，不能将未启用的变体计入当前配置的收益。
+
+包装式接入还要区分：直接包装基线已有符号、在已有调用方重建基线缺失的 helper、独立可选编译。不能把优化快照中新出现的函数名直接注册到没有该符号的基线；核对包装准备阶段和实际调用阶段、能力探测、开关及缓存生命周期。
 
 从项目自有源码建立函数/方法候选索引，排除第三方依赖、生成文件和未使用示例；标注扫描范围，不把静态搜索称为覆盖所有运行路径。按真实调用链和热点优先深入，避免逐个函数机械添加装饰器。
 
@@ -42,6 +44,8 @@ metadata:
 - [End-to-end tutorial](https://docs.pytorch.org/tutorials/intermediate/torch_compile_full_example.html)
 
 比较实际相关的候选：顶层模型、单次训练/推理步骤、重复子模块、局部 Tensor 函数。选择能够稳定捕获且收益合理的较高层边界；图中断、重复编译、启动成本或内存预算不合适时再缩小。不要为了比较而强行实现所有方案。
+
+多模态或其他异构模型可按子系统分别比较逐层、子系统整体和整模型编译，不要求所有部分统一粒度。先核对类型匹配、包装与递归范围，记录预期/实际匹配数量；区分“开关开启”“成功包装”“运行捕获”和“实测收益”，不能因配置开启就声称所有层已编译。
 
 大型框架项目可按几何变换、特征整理、查询初始化、预测解码、匹配代价等计算阶段寻找边界。对照调用者，检查是否拆出独立 Tensor 计算、隔离 CPU 匹配/随机增强，以及边界过细是否增加启动/编译开销或损失融合；函数短小本身不是编译理由。逐一梳理父子编译入口，不能假设嵌套装饰器必然产生独立编译区域或独立采用其 mode。
 
@@ -80,24 +84,32 @@ metadata:
 
 ## 按问题协同
 
-其他 Skill 是可选增强，不构成安装或运行依赖。仅在目标设备确实提供且任务需要时读取；缺少它们时直接按下面的包内基础流程处理，无需安装它们。引用名称不会自动建立依赖，也不要求开启多个代理。
+当任务确实需要某个协作 Skill 时，先检查目标设备的现有安装；已安装则读取并使用。缺少时，在环境允许的情况下，主动从表中指定来源下载到当前用户的 `.agents/skills`，校验后读取并使用，无需重复询问。离线、下载失败或工具能力不足时，说明限制并使用包内基础流程继续。
 
-| 出现的情况 | 使用的现有 Skill | 本 Skill 接收的结果 |
-| --- | --- | --- |
-| 需要判断实际瓶颈 | profile-model | 热点、空闲时间、通信/数据开销及采集条件 |
-| 加入 compile 后有图中断 | debug-graph-breaks | 具体原因、修复或边界缩小建议、复测证据 |
-| 编译后显存异常或 OOM | analyze-memory-snapshot | 分配来源、生命周期、缓存/碎片等证据 |
-| 普通错误、行为回归或构建失败 | systematic-debugging，或项目选定的调试 Skill | 根因与最小修复；避免重复套用多个通用调试流程 |
-| 实施需要增加回归覆盖 | test-driven-development | 数值、梯度、启停开关与状态行为的针对性测试 |
-| 准备声称完成 | verification-before-completion | 实际验证命令和结果，含未覆盖项 |
-| 实施范围较大、涉及复杂状态或分布式 | requesting-code-review | 接口、状态、正确性及测试遗漏的审查结果 |
+只下载当前任务触发的项，不启动时全量安装；不覆盖或升级已有同名 Skill，不自动安装 Python、PyTorch、npm 或其他运行依赖。用户明确禁止联网/安装或目标环境权限不允许时，以该限制为准。引用名称不会自动建立硬依赖，也不会自动提供新工具或子代理能力。
 
-### 没有其他 Skill 时
+| 出现的情况 | 使用的协作 Skill | 本 Skill 接收的结果 | 来源/下载入口（固定提交的完整目录） |
+| --- | --- | --- | --- |
+| 需要判断实际瓶颈 | profile-model | 热点、空闲时间、通信/数据开销及采集条件 | [meta-pytorch/skills](https://github.com/meta-pytorch/skills/tree/15ea40020f7ab0ad6645f78dca3b5634383e93c9/skills/profile-model) |
+| 加入 compile 后有图中断 | debug-graph-breaks | 具体原因、修复或边界缩小建议、复测证据 | [meta-pytorch/skills](https://github.com/meta-pytorch/skills/tree/15ea40020f7ab0ad6645f78dca3b5634383e93c9/skills/debug-graph-breaks) |
+| 编译后显存异常或 OOM | analyze-memory-snapshot | 分配来源、生命周期、缓存/碎片等证据 | [meta-pytorch/skills](https://github.com/meta-pytorch/skills/tree/15ea40020f7ab0ad6645f78dca3b5634383e93c9/skills/analyze-memory-snapshot) |
+| 普通错误、行为回归或构建失败 | systematic-debugging，或项目选定的调试 Skill | 根因与最小修复；避免重复套用多个通用调试流程 | [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills/systematic-debugging)；已有指定替代项时优先复用 |
+| 实施需要增加回归覆盖 | test-driven-development | 数值、梯度、启停开关与状态行为的针对性测试 | [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills/test-driven-development) |
+| 准备声称完成 | verification-before-completion | 实际验证命令和结果，含未覆盖项 | [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills/verification-before-completion) |
+| 实施范围较大、涉及复杂状态或分布式 | requesting-code-review | 接口、状态、正确性及测试遗漏的审查结果 | [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills/requesting-code-review) |
+
+获取与校验步骤见 [references/companion-skills.md](references/companion-skills.md)。使用完整目录和必要配套文件，不把网页地址或单独 SKILL.md 当作已安装；下载阶段不执行其中的脚本。安装完成后立即读取入口及任务需要的参考文件应用到当前任务，不把“下载成功”当作“已使用”，也不假设当前会话的原生选择器立刻刷新。
+
+需要学习 profile-model、debug-graph-breaks、analyze-memory-snapshot 的区别、输入和使用顺序时，阅读 [references/diagnostic-skills-primer.md](references/diagnostic-skills-primer.md)。这是包内学习材料，不代替实际诊断数据或三个专项 Skill 的执行指令。
+
+requesting-code-review 需要独立审查子代理能力；仅在目标环境支持且允许时使用该机制。若不支持，按包内规范自查并明确不是独立审查，不因下载了 Skill 就声称获得子代理能力。
+
+### 无法获取或使用协作 Skill 时
 
 - **热点分析**：读取已有 profiler trace/统计，区分 CPU 准备、传输、算子与通信耗时，查看调用次数和输入形状；没有 trace 时给出热点假设及有限采集方案，不能当作实测。
 - **图中断/重编译**：在目标环境有条件运行时，以代表性小输入启用该版本支持的 graph_breaks/recompiles 日志，定位第一处具体原因，建立最小复现；选择修复、缩小边界或 eager 岛并复测，保持控制流语义。无法运行时只标记风险和待执行命令，不要求安装日志可视化工具。
 - **显存排查**：先核对 shape/dtype、生命周期、allocated/reserved/峰值及分配栈或已有快照；区分活跃张量、缓存与可能泄漏。有快照且可解析时追踪增长位置，否则记录证据缺口，不把 reserved 增长直接判为泄漏。
-- **普通排错与回归**：缩小复现，先对比 eager 行为，再检查最小改动、状态、梯度和开关；按 [references/validation.md](references/validation.md) 做针对性验证，不因缺少测试 Skill 停止。
+- **普通排错与回归**：缩小复现，先对比 eager 行为，再检查最小改动、状态、梯度和开关；按 [references/validation.md](references/validation.md) 做针对性验证，不因无法获取/使用测试 Skill 停止。
 - **完成检查**：实际运行适用的检查并读取结果，逐项列出通过/失败/未运行。复杂改动按调用契约、状态和回归覆盖做自查；如需独立审查可建议后续进行，不能把自查声称为独立审查。
 
 离线、缺少其他 Skill 和没有 GPU 可以同时发生：仍完成可做的静态分析/已授权编辑，分别说明版本核对、运行正确性和 GPU 性能的缺口，不虚构通过结果。
@@ -112,8 +124,14 @@ metadata:
 
 把编译、计算重构、布局、搬运、精度、通信和后端环境变更分列。优先在同一份重构后源码上对比编译开/关，必要时再与原始实现对比；禁止把混合优化版本的总收益全部归因于 compile。
 
+先确认关闭路径返回什么：原始调用方、重构后的 eager helper 或已创建的编译包装并不等价。关闭若同时绕过 helper 重建或布局变化，只能作为组合回退对照；不能称为同一重构代码的纯 eager 对照。API 存在不代表后端可用；显式关闭/能力不足与编译创建或首次调用抛错分开报告。
+
 只有目标环境中的实测数据才能支持加速结论。GPU 不可用、依赖缺失或任务预算不足时，明确标为“仅完成静态分析/代码接入，性能未验证”。没有收益或回归时如实报告，采用用户要求的保留/回退策略，不反复扩大修改范围。
 
 维护本 Skill、了解流程来源与技术规则时，参见 [references/sources.md](references/sources.md)。该文件只是包内来源说明，不要求读取外部原件。普通任务只需加载与当前决策有关的参考文件。
 
 需要复杂模型拆分、eager 岛、静态化契约或厂商后端实例时，按需阅读 [references/maptrv2-case-study.md](references/maptrv2-case-study.md)。这是完整随包提供的静态历史案例，不要求访问原项目；不是当前项目的执行输入，也不是必须照搬的优化配方。
+
+需要多模态子系统采用不同粒度、FSDP1 子模块类型匹配或配置驱动编译入口的实例时，按需阅读 [references/openvla-compile-case-study.md](references/openvla-compile-case-study.md)。案例仅纳入直接 Compile，不扩展为 OpenVLA 全套优化或要求安装其仓库。
+
+需要基线符号包装、缺失 helper 重建、准备/调用阶段开关或缓存实例时，按需阅读 [references/maptrv2-turbophysai-compile-case-study.md](references/maptrv2-turbophysai-compile-case-study.md)。它是独立于旧源码快照的静态案例；无需下载仓库，不把两份来源的模式和实现合并。
