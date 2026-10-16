@@ -1,12 +1,15 @@
-# 三个诊断 Skill：时间、编译捕获、显存
+# 三个诊断 Skill 与 HTA：时间、编译捕获、显存
 
 本文帮助选择专项，并说明它们与 torch-compile-integration 的分工。阅读不需要联网、安装其他 Skill 或提供原始案例项目；执行诊断才需要用户当前项目及对应数据。按需获取规则见 [companion-skills.md](companion-skills.md)。
+
+HTA是可在已有环境中调用的Python分析库，不是第四个Skill。它承接同一批Profiler Trace的适用统计；运行依赖不走协作Skill自动下载策略。
 
 | Skill | 核心问题 | 主要输入 | 主要产出 | 何时使用 |
 | --- | --- | --- | --- | --- |
 | profile-model | 时间花在哪里？ | PyTorch Profiler trace：JSON/JSON.gz，可包含多个rank | 热点、调用次数、GPU空闲、搬运/通信开销及证据限制 | 决定哪里值得compile，或解释编译后为何仍慢 |
 | debug-graph-breaks | 编译在哪一行中断，为什么？ | 相关源码、graph_breaks日志或tlparse报告 | 中断位置/原因、修复或eager边界建议与复测结果 | 已接入compile，但关键路径捕获不完整 |
 | analyze-memory-snapshot | 谁占着显存，为什么未释放？ | PyTorch分配器快照，最好有同次运行前后两份 | 活跃分配来源、释放/等待状态、缓存、碎片与OOM证据 | 编译后显存上涨、OOM或疑似泄漏 |
+| HTA（工具） | 同一批Trace的时间/空闲/通信统计是什么？ | 兼容Trace、已有HTA Python | 各API成功或失败状态、汇总表、警告和覆盖范围 | profile-model快速概览后做适用汇总；多卡进一步分析重叠/rank差异 |
 
 ## profile-model：确定优化目标
 
@@ -16,6 +19,14 @@
 - 若CPU匹配、数据准备或通信主导等待，扩大compile范围未必解决主要问题。
 - 一个Kernel耗时高不代表低效；并行重叠时，累计Kernel时间不能直接当作端到端时间。Profiler自身有开销，收益需另作计时对照。
 - 深入关键路径/空闲分类可用可选HTA；Skill已安装不等于HTA已安装，不自动更改运行环境。
+
+## HTA：执行汇总，帮助核对证据
+
+优先用指定的已有Python，未指定则有限查找已知环境。检查导入和解析后，分别执行temporal、kernel、idle汇总；多卡且通信数据可识别时再看重叠和rank差异。不同API可返回DataFrame或元组，None/空表/缺rank都要说明，不能因某项成功就认定其他指标有效。
+
+关键数字注明窗口、单位、分母和覆盖范围；跨stream累计时间不等于设备活动并集，也不等于关键路径或SM利用率。发现矛盾时抽查原始事件和源码。默认关闭自动绘图，不额外导出CSV，报告形式由调用提示词指定。
+
+HTA缺失/失败时继续原始Trace与源码分析，明确实际用了什么工具；不自动安装运行库或采集模型数据。具体API、单位注意事项及状态记录见 [HTA简明操作参考](hta-analysis.md)。
 
 接收结果后，torch-compile-integration选择编译位置和对照方案，不将热点列表直接转成逐函数加装饰器。
 
@@ -43,6 +54,6 @@
 
 ## 选择与协作
 
-“不知道为什么慢”先看profile-model；“日志显示捕获中断”用debug-graph-breaks；“显存增长或OOM”用analyze-memory-snapshot。三者按问题触发，不每次全部运行。
+“不知道为什么慢”由profile-model组织Trace概览，已有HTA提供适用汇总；“日志显示捕获中断”用debug-graph-breaks；“显存增长或OOM”且已有快照时用analyze-memory-snapshot。仅分析时不实施修复；没有对应输入列证据缺口，不额外启动模型采集。
 
 常见顺序是：性能证据→选择/实施编译边界→按需处理图中断或显存问题→独立验证正确性、稳态性能与端到端收益。没有trace、日志或快照时，明确缺少什么数据，不编造占比、源码归因或加速结论。

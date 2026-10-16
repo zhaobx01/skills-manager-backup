@@ -2,7 +2,7 @@
 name: torch-compile-integration
 description: Analyze PyTorch source to choose torch.compile boundaries and insertion points, or implement and benchmark compilation when requested. Use for deciding which model, step, submodule, or tensor function to compile, adding compile switches, or comparing compilation scope. Route existing graph-break diagnosis to debug-graph-breaks when available.
 metadata:
-  version: "1.5.1"
+  version: "1.6.0"
 ---
 
 # Torch Compile Integration
@@ -17,7 +17,7 @@ metadata:
 
 ## 工作模式
 
-- **分析模式**：用户要求分析、审查、建议或仅给方案时，只读源码和现有结果，不修改项目，不擅自运行完整训练。可以输出建议 diff，但必须标注未应用。
+- **分析模式**：用户要求分析、审查、建议或仅给方案时，读取源码和已有数据，允许运行离线分析工具，并在用户指定或允许的输出位置生成报告。默认不修改项目源码、不启动训练/推理、不额外采集或实施修复；模型运行、采集及运行依赖安装须有当前任务的明确授权。可以输出建议 diff，但必须标注未应用。报告形式、结构、文件名和输出目录按用户提示词决定，不强制固定模板。
 - **实施模式**：用户要求添加、接入、优化实现并验证时，在其授权范围内修改代码、加入启停开关并运行适当检查；无需为普通可逆修改重复询问。
 - 用户只是询问原理或方法时，回答问题，不自动修改项目。缺少运行环境时，仍完成静态分析，并区分已确认事实、推断与未验证项。
 - 仅写“优化建议/筛选热点/分析 compile”时沿用分析模式；明确要求实现优化时采用实施模式。需要运行时，先采用短小且代表性的检查，不默认启动完整训练或穷举所有编译模式。
@@ -34,7 +34,9 @@ metadata:
 
 用户明确要求“所有 def”时，包含普通函数、async def、类方法及嵌套函数；给出项目文件、限定名称与行号。未深入的候选用排除原因或 D 类记录，不能把一小部分热点分析描述成全量逐函数结论。编译风险来自调用链和执行路径，不能仅用语法关键字计数判断。
 
-有 profiler trace 时，按需使用可用的 `profile-model` 阅读它。没有 trace 时，只能给热点假设和采集建议；在用户允许的运行预算内收集小规模代表性数据。
+有 profiler trace 时，由 `profile-model` 组织快速诊断，并用已有可用 HTA 对同一批数据做适用的汇总；复用有效解析结果/报告。结合实际配置和源码解释数据，不把工具汇总直接当成根因。没有 trace 时，只能给热点假设和采集建议；仅在用户明确授权采集时，按其运行预算收集代表性数据。
+
+先区分采集时环境与当前分析环境，核对数据、源码和配置的对应关系、rank归属、有效step与采集窗口。性能数字注明单位、窗口、分母、rank/stream和样本范围；区分CPU窗口、GPU annotation、kernel累计时长及设备活动并集。不以CPU墙钟减kernel累计时间定义GPU idle，不把事件占比当SM利用率或将并行累计时间相加为关键路径；关键归因抽查原始时间线。
 
 ## 选择编译边界
 
@@ -98,21 +100,33 @@ metadata:
 | 准备声称完成 | verification-before-completion | 实际验证命令和结果，含未覆盖项 | [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills/verification-before-completion) |
 | 实施范围较大、涉及复杂状态或分布式 | requesting-code-review | 接口、状态、正确性及测试遗漏的审查结果 | [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills/requesting-code-review) |
 
+分析工具单独按已有运行环境选择，不加入上述7个协作Skill的自动下载清单：
+
+| 工具 | 与协作Skill的关系 | 接收的结果与边界 | 官方来源 |
+| --- | --- | --- | --- |
+| Holistic Trace Analysis（HTA，Python库） | profile-model组织Trace诊断，HTA执行适用的离线统计，torch-compile-integration据此评估边界 | 时间分解、kernel、空闲及多卡通信重叠/rank差异；每项API单独记录状态、警告和覆盖范围，未成功项不补造数据 | [仓库](https://github.com/facebookresearch/HolisticTraceAnalysis) / [API文档](https://hta.readthedocs.io/en/latest/source/api/trace_analysis_api.html) |
+
+HTA优先使用用户指定Python；未指定时检查当前解释器及环境管理器已列出的相关环境，不递归扫描整台设备，也不导入项目训练入口。记录解释器与HTA版本；不自动安装或升级HTA及其依赖。具体调用、指标口径和失败降级见 [references/hta-analysis.md](references/hta-analysis.md)。
+
+仅分析任务按已有输入触发专项：有快照才进行分配器诊断；有日志/报告才分析已观察的图中断或重编译。只有recompile日志时区分重复编译与未证实的图中断；不额外运行模型取证或让专项Skill自动实施修复。
+
 获取与校验步骤见 [references/companion-skills.md](references/companion-skills.md)。使用完整目录和必要配套文件，不把网页地址或单独 SKILL.md 当作已安装；下载阶段不执行其中的脚本。安装完成后立即读取入口及任务需要的参考文件应用到当前任务，不把“下载成功”当作“已使用”，也不假设当前会话的原生选择器立刻刷新。
 
-需要学习 profile-model、debug-graph-breaks、analyze-memory-snapshot 的区别、输入和使用顺序时，阅读 [references/diagnostic-skills-primer.md](references/diagnostic-skills-primer.md)。这是包内学习材料，不代替实际诊断数据或三个专项 Skill 的执行指令。
+需要学习 profile-model、debug-graph-breaks、analyze-memory-snapshot 的区别、与HTA的分工及输入要求时，阅读 [references/diagnostic-skills-primer.md](references/diagnostic-skills-primer.md)。这是包内学习材料，不代替实际诊断数据或专项执行指令。
 
 requesting-code-review 需要独立审查子代理能力；仅在目标环境支持且允许时使用该机制。若不支持，按包内规范自查并明确不是独立审查，不因下载了 Skill 就声称获得子代理能力。
 
 ### 无法获取或使用协作 Skill 时
 
 - **热点分析**：读取已有 profiler trace/统计，区分 CPU 准备、传输、算子与通信耗时，查看调用次数和输入形状；没有 trace 时给出热点假设及有限采集方案，不能当作实测。
-- **图中断/重编译**：在目标环境有条件运行时，以代表性小输入启用该版本支持的 graph_breaks/recompiles 日志，定位第一处具体原因，建立最小复现；选择修复、缩小边界或 eager 岛并复测，保持控制流语义。无法运行时只标记风险和待执行命令，不要求安装日志可视化工具。
+- **图中断/重编译**：仅分析时读取已有日志/报告，定位原因并给出边界建议；无输入则标记证据缺口和待执行命令。用户已授权运行或实施时，再以代表性小输入采集支持的日志，选择修复/缩小边界/eager岛并复测。不能因专项指令建议复现就越过分析模式，不要求安装日志可视化工具。
 - **显存排查**：先核对 shape/dtype、生命周期、allocated/reserved/峰值及分配栈或已有快照；区分活跃张量、缓存与可能泄漏。有快照且可解析时追踪增长位置，否则记录证据缺口，不把 reserved 增长直接判为泄漏。
 - **普通排错与回归**：缩小复现，先对比 eager 行为，再检查最小改动、状态、梯度和开关；按 [references/validation.md](references/validation.md) 做针对性验证，不因无法获取/使用测试 Skill 停止。
 - **完成检查**：实际运行适用的检查并读取结果，逐项列出通过/失败/未运行。复杂改动按调用契约、状态和回归覆盖做自查；如需独立审查可建议后续进行，不能把自查声称为独立审查。
 
 离线、缺少其他 Skill 和没有 GPU 可以同时发生：仍完成可做的静态分析/已授权编辑，分别说明版本核对、运行正确性和 GPU 性能的缺口，不虚构通过结果。
+
+HTA不可导入、Trace不兼容或部分API失败时，保留原始Trace与源码分析，分别标注原始数据、HTA汇总、源码确认、推断及未验证项；不能把其他分析工具的结果称为HTA结果。
 
 没有证据需要自定义 Kernel 时，不转入 write-cuda-* 或 write-triton-*；若编译后仍有关键算子瓶颈，单独提出后续任务。
 
