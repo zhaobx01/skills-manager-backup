@@ -2,7 +2,7 @@
 name: torch-compile-integration
 description: Analyze PyTorch source to choose torch.compile boundaries and insertion points, or implement and benchmark compilation when requested. Use for deciding which model, step, submodule, or tensor function to compile, adding compile switches, or comparing compilation scope. Route existing graph-break diagnosis to debug-graph-breaks when available.
 metadata:
-  version: "1.7.0"
+  version: "1.8.0"
 ---
 
 # Torch Compile Integration
@@ -40,6 +40,8 @@ metadata:
 
 ## 选择编译边界
 
+先按当前项目的源码和证据确定问题，再按需读取 [跨模型问题参考](references/compile-problem-patterns.md)：编译粒度、重复计算与状态、重编译、局部 eager、低侵入开关/消融、实际生效验证。先查对应问题的方法、限制与最小验证，再追溯具体模型案例；不按模型名称套用，不要求每次读取全部材料。证据不足时允许暂缓 compile。
+
 优先核对已安装 PyTorch 版本对应的官方说明；版本特定 API、模式、动态形状和分布式建议以该版本为准。链接是可选核对来源，联网不是加载前提。离线时使用包内规则及用户提供的版本信息继续静态分析；可用时检查目标环境的 help/签名/已有日志，不确定项标为“版本兼容性待核对”，不要求联网或自动升级环境：
 
 - [Where to apply torch.compile](https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/compile/programming_model.where_to_apply_compile.html)
@@ -70,7 +72,7 @@ metadata:
 
 分类：A 直接试编译；B 当前保持 eager；C 做小范围重构后试编译；D 证据不足待验证。A/C 是待测建议，不是收益承诺。
 
-推荐一个首选方案，并说明其他相关候选为什么暂不选。若瓶颈主要是数据加载、搬运或通信，明确 compile 可能收益有限。
+证据充分时推荐一个首选方案，并说明其他相关候选为什么暂不选；证据不足时可暂缓 compile 并说明缺口。若瓶颈主要是数据加载、搬运或通信，明确 compile 可能收益有限。
 
 涉及模式选择、动态 shape、区域编译或 DDP/FSDP 时，按需阅读 [references/decisions.md](references/decisions.md)。出现 CPU/GPU 交换、同步或布局拷贝时阅读 [references/data-movement.md](references/data-movement.md)，沿用用户流程中的“位置/影响/方案”表；不要把数据搬运整改扩展到任务范围之外。
 

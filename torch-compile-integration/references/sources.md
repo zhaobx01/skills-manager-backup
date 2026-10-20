@@ -1,6 +1,14 @@
 # 来源与维护说明
 
-版本：1.7.0；整理日期：2026-10-20。
+版本：1.8.0；整理日期：2026-10-20。
+
+## 跨模型问题参考与 BEV 案例（v1.8.0）
+
+新增 [按问题查阅](compile-problem-patterns.md)，连接不同模型经验，不合并快照、参数或证据。保留全部历史案例、HTA、UI 和用户提示词。
+
+新增 [BEVFormer](bevformer-compile-case-study.md) 与 [BEVFusion](bevfusion-compile-case-study.md)，固定来源均为 [iMountTai/TurboPhysAI，bb302a6363a06582e303f052c743469c55af65bf](https://github.com/iMountTai/TurboPhysAI/tree/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models)。静态核对 catalog、recipe、包装器及调用点，未独立对照完整模型基线，未运行模型。BEVFormer 记录三个编译目标和现场 SCA 分桶；BEVFusion 记录八个目标与三个显式 eager 边界。别名不增加目标数，目标数不等于实际图数。
+
+包装器、分桶及关闭路径仅以轻量替身检验控制逻辑；不证明真实 engine、目标 PyTorch 构建、GPU 数值、梯度、吞吐或显存表现。源码注释中的类编译行为、validated 描述均属于来源声明。公开链接用于追溯，不构成本地依赖。
 
 ## Cosmos3 编译案例（v1.7.0）
 
