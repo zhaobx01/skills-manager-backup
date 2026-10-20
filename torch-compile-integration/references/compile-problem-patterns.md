@@ -10,6 +10,7 @@
 | 部分计算不适合放入编译图 | [P4](#p4) | 仅隔离有证据的局部，核对边界代价 |
 | 希望低侵入接入并快速消融 | [P5](#p5) | 集中接入，明确开关生命周期及真实关闭路径 |
 | 配置已开启，但不确定是否有效 | [P6](#p6) | 配置、命中、捕获、正确性、收益分别验证 |
+| 重复层或内外层分别编译，复用不稳定 | [P7](#p7) | 区分共享包装与共享图，检查分派及缓存生命周期 |
 
 每个案例保持自身固定提交、参数、调用范围与证据等级。同一方法在不同模型中可能改变不同对象，不能混合快照统计或把一个项目的默认 mode/dynamic/fullgraph 应用于另一个项目。
 
@@ -28,6 +29,7 @@
 | BEVFormer | 图像特征阶段、Encoder 单层、Decoder 整体并存 | [三个目标](bevformer-compile-case-study.md#编译目标与接入) |
 | BEVFusion | backbone 实例、模块类、检测头方法和小 helper，包装对象不同 | [八个目标](bevfusion-compile-case-study.md#八个编译目标) |
 | MapTRv2 | 按几何、查询初始化与解码阶段拆分；不能按函数数量推算图数 | [历史入口](maptrv2-case-study.md#19-个编译入口与-2-个-eager-边界) |
+| OpenWAM | MoT 联合 block、VAE encoder.forward 和小函数编译；与类包装或 AOT 不等价 | [五类入口](openwam-compile-case-study.md#五类直接编译入口) |
 
 **最小验证**：选一个首选及必要备选，记录匹配对象/数量、正确性、编译准备成本、稳态与端到端指标；没有足够证据可以暂缓。边界比较规则见 [决策参考](decisions.md#比较边界)。
 
@@ -44,6 +46,7 @@
 | --- | --- | --- |
 | MapTRv2 包装案例 | 5 个调用方重建 8 个 helper；先确认基线符号和返回契约 | [helper 与调用方](maptrv2-turbophysai-compile-case-study.md#8-个-helper-与-5-个调用方) |
 | Cosmos3 | 外层切块拼接保留，局部 AOT 显式传递缓存，按形状/状态分派 | [局部 AOT](cosmos3-compile-case-study.md#局部-aot-如何工作) |
+| OpenWAM | checkpoint 重算在局部状态容器中赋值，返回后更新外层；浅拷贝不隔离 Tensor 数据 | [分派与状态](openwam-compile-case-study.md#内外层分派与-checkpoint-状态) |
 
 **最小验证**：原实现／重构后 eager／相同重构后 compiled 分开对照，覆盖首次和连续调用、状态重置、尾块及失败路径；浅拷贝列表不隔离 Tensor 数据。
 
@@ -61,6 +64,7 @@
 | Cosmos3 | HIP 编译路径只对特定 Attention launch 参数分桶；真实长度保留，并表达形状契约 | [机制与条件](cosmos3-compile-case-study.md#源码与配置对应表) |
 | BEVFormer | 现场路径调整索引承载长度，真实 lengths/mask 保留；预取路径绕过该段，仍有 item | [SCA 分桶](bevformer-compile-case-study.md#sca-长度分桶) |
 | MapTRv2 | 固定容量 GT、mask/length 与空分支是语义契约，不等同于参数分桶 | [GT 契约](maptrv2-case-study.md#重点契约固定容量-gt-并非只加装饰器) |
+| OpenWAM | 选择性动态文本轴、静态归约维和跨 eager 边界的标记传递；保留 0/1 特化 | [动态性与边界](openwam-compile-case-study.md#动态标记与-eager-边界) |
 
 **最小验证**：测零、桶两侧、上限与超限，检查有效元素映射、mask、输出/梯度；记录预热后重编译、版本数及内存。先后使用相同输入分布，不用更规整数据制造收益。
 
@@ -77,6 +81,7 @@
 | --- | --- | --- |
 | MapTRv2 | CPU 匹配与 NumPy/PIL 随机增强保留 eager；调用与状态各自核对 | [eager 边界 M01/M21](maptrv2-case-study.md#19-个编译入口与-2-个-eager-边界) |
 | BEVFusion | 位置编码、FFN 方法和深度 Softmax 显式 disable，不受同一编译关闭变量控制 | [三个 eager 边界](bevfusion-compile-case-study.md#三个显式-eager-边界) |
+| OpenWAM | Attention/SAC 的局部 eager 与 MoT fullgraph 条件关联，但两者判定不完全相同 | [动态性与边界](openwam-compile-case-study.md#动态标记与-eager-边界) |
 
 **最小验证**：正确性与状态保持，实际捕获区域及边界成本；仅分析任务只解释已有日志，不因专项 Skill 建议复现而自动运行或修复。
 
@@ -95,6 +100,7 @@
 | BEVFormer | 图像特征关闭后仍用改写函数，Encoder/Decoder 返回传入方法 | [关闭路径](bevformer-compile-case-study.md#开关与真实关闭路径) |
 | BEVFusion | 先准备 Group 时显式选择改写函数；类/实例/方法关闭及 disable 状态不同 | [顺序与关闭](bevfusion-compile-case-study.md#包装顺序与关闭路径) |
 | Cosmos3 | 关闭替换可能恢复基线已有 AOT；整个 Group 组合还改变布局 | [失败与关闭](cosmos3-compile-case-study.md#失败与关闭路径) |
+| OpenWAM | 从已安装 Group 汇总并冻结配置；大块与小函数开关独立，关闭不撤销已有包装 | [配置与消融](openwam-compile-case-study.md#配置冻结初始化与消融) |
 
 **最小验证**：首次关闭/开启、已启用后关闭、重复入口、mode 改变和异常分别检查。原实现、重构后 eager、相同重构后 compiled 三组用于混合改动归因；给出真实启停命令，不暗示自动回退。
 
@@ -113,5 +119,24 @@
 | BEVFusion | 注册 Gaussian helper 不证明实际执行；改写目标生成还使用 CPU helpers | [顺序与关闭](bevfusion-compile-case-study.md#包装顺序与关闭路径) |
 | Cosmos3 | 编译、加载、变体查表命中与数值正确性分开 | [证据与验证](cosmos3-compile-case-study.md#验证要求与当前证据) |
 | MapTRv2 包装案例 | 能力探测、包装准备和运行图不等价 | [准备/调用阶段](maptrv2-turbophysai-compile-case-study.md#参数能力与准备调用阶段) |
+| OpenWAM | 基础/online/cached/cache-build 配置不同；MoT 两条条件分支及缓存 latent 后的 VAE 命中需逐项检查 | [可达路径](openwam-compile-case-study.md#mot-可达路径与共享入口) |
 
 **最小验证**：用 Trace 和必要日志确认执行；正式性能对照关闭 profiler、数值检查和诊断日志，记录首次调用、稳态迭代/吞吐、波动及峰值显存。局部变快不证明端到端获益；无收益时可不保留方案。统计和对照要求复用 [验证规范](validation.md#分开测量成本)，不另造一套协议。
+
+<a id="p7"></a>
+## P7 重复层复用与嵌套编译
+
+**现象与所需证据**：形状相近的重复层仍反复特化，分派器按 callable 或层索引生成图，或外围已编译但内部又创建包装；需要实际 guards/recompiles、调用栈、编译对象及缓存归属。仅存在嵌套入口不能证明性能问题。
+
+**可选处理**：比较将层查找保留在图外、显式传入模块对象、按 driver/函数/配置缓存包装，以及外层捕获时直接执行内部表达式。保留 SAC 等优先分派条件，不以一条“全部取消内层编译”规则替代实际分支。
+
+**不适用条件**：不同模块类型、参数属性、状态和输入 guards 仍可能产生不同图；共享 callable 不证明只编译一次。无热点或无重编译证据时不为复用扩大重构；私有 skip_code 只作受限案例，不作为跨版本要求。
+
+| 模型做法 | 差异与可借鉴处 | 具体来源 |
+| --- | --- | --- |
+| OpenWAM | 同 driver 缓存局部 layer，外部查出 blocks 后显式传入；外层已捕获时部分小函数直接执行 | [共享入口](openwam-compile-case-study.md#mot-可达路径与共享入口)、[分派条件](openwam-compile-case-study.md#内外层分派与-checkpoint-状态) |
+| OpenVLA | 对匹配的 FSDP1 层分别包装，不能据此认定跨层共享同一个 callable 或图 | [粒度](openvla-compile-case-study.md#编译参数与粒度) |
+| MapTRv2 包装案例 | helper 按名称/mode 缓存，关注全局活动配置与复用隔离，和共享重复层不是同一缓存机制 | [缓存](maptrv2-turbophysai-compile-case-study.md#helper-缓存与活动-mode) |
+| MapTRv2 历史案例 | 父子入口同时 compile 时需检查实际捕获与融合；不假设每个装饰器独立生成图 | [入口与风险](maptrv2-case-study.md#19-个编译入口与-2-个-eager-边界) |
+
+**最小验证**：同一对象/多对象、多层类型、不同形状、外层编译开关及缓存生命周期分别检查；记录包装创建次数、图/重编译证据、正确性和内存，不能互相替代。涉及 checkpoint 的状态和梯度验证归入 [P2](#p2) 与 [验证规范](validation.md)，不借此展开独立 checkpoint 调优。

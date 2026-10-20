@@ -1,6 +1,14 @@
 # 来源与维护说明
 
-版本：1.8.0；整理日期：2026-10-20。
+版本：1.9.0；整理日期：2026-10-20。
+
+## OpenWAM 与第七类问题（v1.9.0）
+
+新增 [OpenWAM 静态案例](openwam-compile-case-study.md)，来源为 [iMountTai/TurboPhysAI，e4528c392096d2ad490e716af6f39ee3603af103](https://github.com/iMountTai/TurboPhysAI/tree/e4528c392096d2ad490e716af6f39ee3603af103/turbo_physai/optimizations/models/openwam)。provenance 声明 OpenWAM 来源提交 bfce20b575a9b34aea385030fcb00a9eaf61fcb5、基线 1204dde1b9e9c232131fc99a3f2c6b78330e7f64；本次未独立对照完整上游，不将移植机制全部归为新增优化。
+
+记录五类编译入口及必要配置、动态标记、eager、checkpoint 状态背景；补入 P1–P6 并新增 [P7：重复层复用与嵌套编译](compile-problem-patterns.md#p7)。源码核对发现 MoT 同时有 checkpoint 与 suppress_inner_attn_ckpt 条件下的非 checkpoint 编译分支，修正“只在 checkpoint 路径”这一过窄概括。
+
+仅以固定快照、配置和源码提取替身验证控制逻辑；未运行模型、真实 PyTorch 编译、checkpoint backward 或 GPU 性能，不把共享包装称为唯一图。案例完整随包提供，公开链接不构成加载依赖；既有案例、HTA、UI 和用户提示词保留。
 
 ## 跨模型问题参考与 BEV 案例（v1.8.0）
 

@@ -1,5 +1,7 @@
 # 编译边界与配置决策
 
+重复层复用与内外层分派见 [P7](compile-problem-patterns.md#p7)。共享 callable、包装缓存与共享图是不同层次：外部查出模块再传参可能减少索引 guards，但模块类型/参数和状态仍能特化。dynamic=False 与显式 mark_dynamic 可并存，需按轴和目标版本判断；checkpoint 状态容器浅拷贝不隔离 Tensor 原地数据。OpenWAM 的这类做法只作条件化参考，不默认复制私有 skip_code。
+
 按当前问题选经验见 [跨模型问题参考](compile-problem-patterns.md)。类对象、模块实例和 forward 方法的编译入口不能直接互换；核对目标版本对类包装的支持及可能的类状态修改。Group 先准备后应用时，后续包装是否捕获旧函数、是否显式选择改写函数，需要沿真实调用链确认；关闭变量不自动撤销已经返回的包装或已有类状态。
 
 ## 按需局部 AOT 与状态契约

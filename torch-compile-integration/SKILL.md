@@ -2,7 +2,7 @@
 name: torch-compile-integration
 description: Analyze PyTorch source to choose torch.compile boundaries and insertion points, or implement and benchmark compilation when requested. Use for deciding which model, step, submodule, or tensor function to compile, adding compile switches, or comparing compilation scope. Route existing graph-break diagnosis to debug-graph-breaks when available.
 metadata:
-  version: "1.8.0"
+  version: "1.9.0"
 ---
 
 # Torch Compile Integration
@@ -40,7 +40,7 @@ metadata:
 
 ## 选择编译边界
 
-先按当前项目的源码和证据确定问题，再按需读取 [跨模型问题参考](references/compile-problem-patterns.md)：编译粒度、重复计算与状态、重编译、局部 eager、低侵入开关/消融、实际生效验证。先查对应问题的方法、限制与最小验证，再追溯具体模型案例；不按模型名称套用，不要求每次读取全部材料。证据不足时允许暂缓 compile。
+先按当前项目的源码和证据确定问题，再按需读取 [跨模型问题参考](references/compile-problem-patterns.md)：编译粒度、重复计算与状态、重编译、局部 eager、低侵入开关/消融、实际生效验证、重复层复用与嵌套编译。先查对应问题的方法、限制与最小验证，再追溯具体模型案例；不按模型名称套用，不要求每次读取全部材料。证据不足时允许暂缓 compile。
 
 优先核对已安装 PyTorch 版本对应的官方说明；版本特定 API、模式、动态形状和分布式建议以该版本为准。链接是可选核对来源，联网不是加载前提。离线时使用包内规则及用户提供的版本信息继续静态分析；可用时检查目标环境的 help/签名/已有日志，不确定项标为“版本兼容性待核对”，不要求联网或自动升级环境：
 
