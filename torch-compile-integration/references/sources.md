@@ -1,6 +1,14 @@
 # 来源与维护说明
 
-版本：1.6.0；整理日期：2026-10-15。
+版本：1.7.0；整理日期：2026-10-20。
+
+## Cosmos3 编译案例（v1.7.0）
+
+固定来源：[iMountTai/TurboPhysAI，bb302a6363a06582e303f052c743469c55af65bf](https://github.com/iMountTai/TurboPhysAI/tree/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models/cosmos3)。仅记录局部 AOT、减少重复编译及必要配置/失败背景，不扩展为其他独立优化。
+
+按 provenance 对照了 [NVIDIA/cosmos-framework 基线 VAE 文件，9726697a83315540c6885baefd2fe353d9c74920](https://github.com/NVIDIA/cosmos-framework/blob/9726697a83315540c6885baefd2fe353d9c74920/cosmos_framework/model/generator/tokenizers/wan2pt2_vae_4x16x16.py)：AOT 框架已存在；适配改变形状解包、缓存目录处理且未保留逐变体正确性检查，不将省略验证列为通用建议。适配来源提交 `291c4e231809273d850910f07e9cdb252e9bd244` 在同一公开仓库的文件入口返回 404，属于来源声明、未独立对照。
+
+完整解释见 [包内案例](cosmos3-compile-case-study.md)。全部链接是追溯资料，不是加载依赖；本次源码对照和轻量替身不构成模型/GPU 数值、吞吐或显存验证。三个历史案例及 HTA 内容保留。
 
 本文件是随包提供的来源记录，不是外部输入清单。用户流程的有效内容已归纳到本包中；使用、迁移、更新或验证本 Skill 不需要外部原件、原作者电脑或历史源码。所有项目名称及相对源码位置仅用于说明案例，不是文件查找指令。
 

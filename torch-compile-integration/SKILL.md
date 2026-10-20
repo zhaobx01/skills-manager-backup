@@ -2,7 +2,7 @@
 name: torch-compile-integration
 description: Analyze PyTorch source to choose torch.compile boundaries and insertion points, or implement and benchmark compilation when requested. Use for deciding which model, step, submodule, or tensor function to compile, adding compile switches, or comparing compilation scope. Route existing graph-break diagnosis to debug-graph-breaks when available.
 metadata:
-  version: "1.6.0"
+  version: "1.7.0"
 ---
 
 # Torch Compile Integration
@@ -52,6 +52,8 @@ metadata:
 大型框架项目可按几何变换、特征整理、查询初始化、预测解码、匹配代价等计算阶段寻找边界。对照调用者，检查是否拆出独立 Tensor 计算、隔离 CPU 匹配/随机增强，以及边界过细是否增加启动/编译开销或损失融合；函数短小本身不是编译理由。逐一梳理父子编译入口，不能假设嵌套装饰器必然产生独立编译区域或独立采用其 mode。
 
 判断依据：调用频率、实测耗时、可融合算子、Python 开销、shape/stride/dtype/device 变化、数据相关控制流、状态修改、自定义算子注册、编译与部署成本。
+
+外层切块/循环复杂而内部重复计算稳定时，可保留调度并显式传入传出状态缓存；先比较常规 torch.compile，按需再评估 export/AOTInductor，不把 AOT 当作普通 mode。长度分桶和形状断言须有真实契约及重编译证据，不能以扩大缓存或跳过必要检查替代根因排查。详细边界、继承关系及失败处理见 [Cosmos3 编译案例](references/cosmos3-compile-case-study.md)。
 
 不能把以下情况写成绝对禁令：
 
