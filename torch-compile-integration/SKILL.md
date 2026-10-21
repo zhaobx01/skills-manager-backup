@@ -2,7 +2,7 @@
 name: torch-compile-integration
 description: Analyze PyTorch source to choose torch.compile boundaries and insertion points, or implement and benchmark compilation when requested. Use for deciding which model, step, submodule, or tensor function to compile, adding compile switches, or comparing compilation scope. Route existing graph-break diagnosis to debug-graph-breaks when available.
 metadata:
-  version: "1.9.0"
+  version: "1.9.1"
 ---
 
 # Torch Compile Integration
@@ -97,7 +97,7 @@ metadata:
 | 出现的情况 | 使用的协作 Skill | 本 Skill 接收的结果 | 来源/下载入口（固定提交的完整目录） |
 | --- | --- | --- | --- |
 | 需要判断实际瓶颈 | profile-model | 热点、空闲时间、通信/数据开销及采集条件 | [meta-pytorch/skills](https://github.com/meta-pytorch/skills/tree/15ea40020f7ab0ad6645f78dca3b5634383e93c9/skills/profile-model) |
-| 加入 compile 后有图中断 | debug-graph-breaks | 具体原因、修复或边界缩小建议、复测证据 | [meta-pytorch/skills](https://github.com/meta-pytorch/skills/tree/15ea40020f7ab0ad6645f78dca3b5634383e93c9/skills/debug-graph-breaks) |
+| 加入 compile 后有图中断 | debug-graph-breaks；先按 [P4](references/compile-problem-patterns.md#p4) 分类并筛选影响 | 具体原因、最小修复/边界调整/局部 eager 建议及复测证据；低影响项记录后暂缓 | [meta-pytorch/skills](https://github.com/meta-pytorch/skills/tree/15ea40020f7ab0ad6645f78dca3b5634383e93c9/skills/debug-graph-breaks) |
 | 编译后显存异常或 OOM | analyze-memory-snapshot | 分配来源、生命周期、缓存/碎片等证据 | [meta-pytorch/skills](https://github.com/meta-pytorch/skills/tree/15ea40020f7ab0ad6645f78dca3b5634383e93c9/skills/analyze-memory-snapshot) |
 | 普通错误、行为回归或构建失败 | systematic-debugging，或项目选定的调试 Skill | 根因与最小修复；避免重复套用多个通用调试流程 | [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills/systematic-debugging)；已有指定替代项时优先复用 |
 | 实施需要增加回归覆盖 | test-driven-development | 数值、梯度、启停开关与状态行为的针对性测试 | [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills/test-driven-development) |
@@ -123,7 +123,7 @@ requesting-code-review 需要独立审查子代理能力；仅在目标环境支
 ### 无法获取或使用协作 Skill 时
 
 - **热点分析**：读取已有 profiler trace/统计，区分 CPU 准备、传输、算子与通信耗时，查看调用次数和输入形状；没有 trace 时给出热点假设及有限采集方案，不能当作实测。
-- **图中断/重编译**：仅分析时读取已有日志/报告，定位原因并给出边界建议；无输入则标记证据缺口和待执行命令。用户已授权运行或实施时，再以代表性小输入采集支持的日志，选择修复/缩小边界/eager岛并复测。不能因专项指令建议复现就越过分析模式，不要求安装日志可视化工具。
+- **图中断/重编译**：先按 [P4](references/compile-problem-patterns.md#p4) 区分原因和影响；重编译转 P3，重复层/嵌套编译关联 P7。仅分析时读取已有日志/报告并给出方案；没有日志仍可静态检查风险，但实际断图和影响标为待验证。用户已授权运行或实施时，再采集代表性输入的日志，按原因选择最小 Tensor 改写、边界调整或局部 eager，并分开验证正确性、实际捕获和性能。低影响或成本偏高的项记录后暂缓；阻止目标捕获或影响正确性的问题单独处理。不能因专项指令建议复现就越过分析模式，不要求安装日志可视化工具。
 - **显存排查**：先核对 shape/dtype、生命周期、allocated/reserved/峰值及分配栈或已有快照；区分活跃张量、缓存与可能泄漏。有快照且可解析时追踪增长位置，否则记录证据缺口，不把 reserved 增长直接判为泄漏。
 - **普通排错与回归**：缩小复现，先对比 eager 行为，再检查最小改动、状态、梯度和开关；按 [references/validation.md](references/validation.md) 做针对性验证，不因无法获取/使用测试 Skill 停止。
 - **完成检查**：实际运行适用的检查并读取结果，逐项列出通过/失败/未运行。复杂改动按调用契约、状态和回归覆盖做自查；如需独立审查可建议后续进行，不能把自查声称为独立审查。

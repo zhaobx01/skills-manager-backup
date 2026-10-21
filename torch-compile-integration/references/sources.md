@@ -1,6 +1,12 @@
 # 来源与维护说明
 
-版本：1.9.0；整理日期：2026-10-20。
+版本：1.9.1；整理日期：2026-10-21。
+
+## P4 图中断处理补丁（v1.9.1）
+
+将 [P4](compile-problem-patterns.md#p4) 改为图中断诊断、修复与局部 eager 边界，保留原锚点与模型实例。处理表精简为边界调整、保持语义的 Tensor 改写、局部 eager 三类；重编译和嵌套入口分别关联 P3/P7。按实际影响与修改成本暂缓低收益候选，不设统一百分比，不将正确性或目标捕获障碍按低收益忽略。主文件补齐协作/降级入口，验证参考分列正确性、捕获和正式性能验收；不新增运行依赖或改动历史案例。
+
+技术核对参考 [PyTorch 常见图中断](https://docs.pytorch.org/docs/2.14/user_guide/torch_compiler/compile/programming_model.common_graph_breaks.html)、[编译范围](https://docs.pytorch.org/docs/2.14/user_guide/torch_compiler/compile/programming_model.where_to_apply_compile.html)、[disable](https://docs.pytorch.org/docs/2.14/generated/torch.compiler.disable.html)、[allow_in_graph 限制](https://docs.pytorch.org/docs/2.14/generated/torch.compiler.allow_in_graph.html)、[where](https://docs.pytorch.org/docs/2.14/generated/torch.where.html) 与 [cond](https://docs.pytorch.org/docs/2.14/generated/torch.cond.html)。这些链接用于可选追溯，目标实现仍按实际 PyTorch 版本核对；文档补丁和结构检查不证明模型数值或 GPU 性能已验证。
 
 ## OpenWAM 与第七类问题（v1.9.0）
 
