@@ -9,4 +9,3 @@
 ROCm 的建议变量可能因 PyTorch 构建、版本和使用的卷积路径不同而不可用或无效果。检查目标版本源码/文档及运行日志，以独立进程比较 unset 和指定值，记录进程环境；不要把变量名称作为布局生效证明。`MIOPEN_FIND_MODE=1` 在 MIOpen 文档中对应 normal/full find，可能增加搜索与缓存成本，默认值及行为以安装版本为准。控制持久 FindDb/PerfDb 与预热状态并记录；不要删除用户缓存作为默认步骤。精度相关变量属于独立实验。
 
 来源：[PyTorch memory format 教程](https://docs.pytorch.org/tutorials/intermediate/memory_format_tutorial.html)、[PyTorch 卷积权重转换实现](https://github.com/pytorch/pytorch/blob/main/torch/nn/utils/memory_format.py)、[MIOpen 环境变量](https://rocm.docs.amd.com/projects/MIOpen/en/latest/reference/env_variables.html)。
-
