@@ -18,6 +18,8 @@ description: Analyze or implement PyTorch channels-last memory-format optimizati
 - 提供显式可关闭配置，尊重项目默认行为；在合适的模型生命周期点转换相关 Conv2d/Conv3d 权重和输入，避免在每层或热循环中重复复制。整体 `module.to(memory_format=...)` 可能触及其他 4D/5D 参数；混合模型可只转换卷积子模块或使用版本支持的卷积权重转换工具。先核对共享参数、优化器状态、checkpoint、DDP/FSDP 初始化及加载顺序，转换前后验证对象与状态，不假定通用顺序。
 - 输入使用 `x.to(memory_format=torch.channels_last)` 或 `torch.channels_last_3d`，依据维度选择；输出和索引的逻辑顺序保持原有契约。`to` 对单维退化形状的显式 restride 比 `contiguous(memory_format=...)` 更可靠，但某些完全退化形状仍有歧义。记录 `shape`, `stride()`, `is_contiguous()` 和对应 memory format 检查；两个检查同时为真并不能证明后端采用某种算法。
 - 追踪 reshape/view、permute、切片、拼接、padding、插值、缓存、数据增强和自定义算子边界。`view` 有 stride 要求，不能盲改为 reshape 后忽略潜在复制；检查 alias、原地更新、梯度与输出协议。算子可能改变布局或引入复制，使用 profiler 检查转换、copy 和实际瓶颈；只在有必要的边界修复布局，保持不支持该格式的算子接口。
+- 自定义算子、融合算子和缓存常按输入格式选路径，并要求相关 tensor 格式一致，不满足时回退或走慢路径而不报错（如 DCN、GridSampler 的 NHWC 分支，Cosmos3 融合 NDHWC 卷积要求规范 stride，OpenWAM 对缓存 clone 同格式）。逐个列出契约，用 profiler 或日志确认实际命中，缓存与激活保持同一格式。
+- 区分三类布局动作：转换（输入激活、卷积权重、整模型 `to`）、Inductor 的布局选择（`TORCHINDUCTOR_LAYOUT_OPTIMIZATION`）、后端提示（ROCm 变量）。同一项目可能同时设置，做消融时分别开关。整模型转换的范围可配置时（如 MapTRv2 的 `model` 与 `backbone`），先从较小范围开始。
 - 分别验证 eager 与实际使用的 `torch.compile`：转换置于合适的编译边界，观察 stride guards、重编译、图断和运行时布局，不假定 eager 中的转换在融合图里一定产生预期布局。OpenWAM 使用了私有 Inductor primitive，但它是版本依赖的案例，不作为通用方案；只有明确需要时才核对版本、兼容性、fallback 和梯度。
 - ROCm 上把 `PYTORCH_MIOPEN_SUGGEST_NHWC` / `PYTORCH_MIOPEN_SUGGEST_NDHWC` 视为版本和构建相关的后端提示，不等于输入或权重转换，也不保证算法或加速。`MIOPEN_FIND_MODE` 控制搜索策略和启动成本；独立消融并检查该版本的支持、默认值和数据库状态。启动进程前设置并记录原值；不顺带改变 TF32、GEMM、精度或其他变量。详见 [布局与后端](references/layout-and-backends.md)。
 
@@ -27,6 +29,6 @@ description: Analyze or implement PyTorch channels-last memory-format optimizati
 
 若不支持、正确性不达标、实际回归或收益不抵成本，关闭开关并验证恢复原路径、格式及结果；报告触发条件与实际执行路径，不静默吞掉错误。对于已经创建的模型或编译缓存，重新构建/重启进程以获得干净对照，避免切开关后残留权重布局、已捕获图或后端缓存。用户允许局部回退时可隔离不兼容子图并重新测试。没有目标设备或依赖时完成静态工作，标明未运行的项目及原因，不宣称通过或提速。
 
-按需阅读 [源码案例与证据范围](references/source-evidence.md)。这些案例说明可考虑的边界，不证明当前模型启用了优化或获得收益。
+按需阅读 [源码案例与证据范围](references/source-evidence.md)（六个模型的对照表和常见陷阱），细节见 [逐模型源码机制](references/turbophysai-channels-last-evidence.md)。这些案例说明可考虑的边界，不证明当前模型启用了优化或获得收益。
 
 需要从像素排列开始理解 2D/3D 布局转换、MIOpen 布局开关和算法搜索时，阅读 [channels-last 学习说明](references/channels-last-learning.md)。
