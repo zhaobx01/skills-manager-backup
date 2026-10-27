@@ -1,11 +1,12 @@
 # MapTRv2 TurboPhysAI 静态案例：包装、helper 重建和独立编译
 
-整理日期：2026-10-15；对应 Skill v1.4.0。本文完整随包提供，无需原始仓库、原电脑、其他 Skill 或联网。路径/行号与摘要是历史定位标签，不是要求读取的外部文件。
+整理日期：2026-10-15，于2026-10-27按新提交重新核对行号与默认值；对应 Skill v1.10.0。本文完整随包提供，无需原始仓库、原电脑、其他 Skill 或联网。路径/行号与摘要是历史定位标签，不是要求读取的外部文件。
 
 ## 固定来源与证据范围
 
-- 仓库：zhaobx01/TurboPhysAI；提交：`6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980`。不跟随 main 后续漂移。
-- 该提交生成配置声明的 MapTR 基线：`e03f097abef19e1ba3fed5f471a8d80fbfa0a064`；recipe 自身 compatibility 为空，不能把二者混为一谈。
+- 仓库：zhaobx01/TurboPhysAI；提交：`bc8ced4a4b55e106579502edcb00b47b124f3fe4`（v1.10.0 起；此前固定在 `6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980`）。不跟随 main 后续漂移。
+- 两提交间对本案例有影响的变化：assigner.py 代码里的缺省值未变，但 runtime.yaml 新增了 `TURBO_PHYSAI_MAPTRV2_ASSIGN_COMPILE: "1"`；catalog.py 与 reference.py 的行号整体移动；`configs/optimization.yaml` 已从仓库删除。compile.py 内容未变。
+- 6fdd1d9 的 `configs/optimization.yaml` 曾声明 MapTR 基线 `e03f097abef19e1ba3fed5f471a8d80fbfa0a064`；bc8ced4 已无该文件，recipe 自身 compatibility 仍为空，不能把二者混为一谈，也不能在新提交上再引用该基线声明。
 - 以下相对实现文件位于 `turbo_physai/optimizations/models/maptrv2_optimization/`。源码、注册和配置已作静态核对；本轮未运行仓库测试、真实模型、训练或 GPU 编译。
 - 仓库 README 关于参考实现/通过测试的描述属于来源自述，不是本次测量。本 Skill 旧 MapTRv2 源码案例是另一快照，其19处装饰器模式不能被新 README 描述覆盖；两份记录保留各自证据。
 
@@ -19,11 +20,11 @@
 | maptrv2.reference_boundaries | enabled=True，options为空 | 5个基线调用方 → reference 中重建实现 →8个 helper；prepare按mode缓存包装 | 5+8=13个额外编译边界，或关闭只影响编译而不影响重构 |
 | maptrv2.assigner | enabled=True，options为空 | 静态替换路径中的assign，额外由独立环境开关 opt-in 编译 | static assigner开启就代表assign已经编译 |
 
-10+8+1是潜在具名编译边界的分组，不是静态torch.compile调用点数、真实FX图数或当前运行命中数；assign默认不编译。实际代码在三个位置发起 torch.compile：compile.py:44、reference.py:281（循环）、assigner.py:301。
+10+8+1是潜在具名编译边界的分组，不是静态torch.compile调用点数、真实FX图数或当前运行命中数；assign的代码缺省不编译（`os.getenv(..., "0")`），但随包 runtime.yaml 把该开关设为 "1"，所以按 recipe 加载运行时配置时 assign 会编译，单独调用代码则不会。实际代码在三个位置发起 torch.compile：compile.py:44、reference.py:283（循环）、assigner.py:300。
 
 ## 10 个基线同名目标
 
-catalog.py:113–127列出以下target；129–138行逐个注册同一compile_wrapper及runtime_condition。目标命名中的类/模块限定名必须保留，不能将其他文件的同名函数视为同一目标。
+catalog.py:135–149列出以下target；151–161行逐个注册同一compile_wrapper及runtime_condition。目标命名中的类/模块限定名必须保留，不能将其他文件的同名函数视为同一目标。
 
 | ID | 完整 target |
 | --- | --- |
@@ -40,20 +41,20 @@ catalog.py:113–127列出以下target；129–138行逐个注册同一compile_w
 
 ## 8 个 helper 与 5 个调用方
 
-这些helper不是直接注册到基线的新增target；catalog.py:253–310包装已有调用方，reference.py内部重建阶段边界。_HELPERS清单在258–267行。存在同名helper不能证明干净基线也有这个符号。
+这些helper不是直接注册到基线的新增target；catalog.py:303–360包装已有调用方，reference.py内部重建阶段边界。_HELPERS清单在260–269行。存在同名helper不能证明干净基线也有这个符号。
 
 | ID | helper定义（reference.py行） | 基线调用方 | 重建实现与helper调用 |
 | --- | --- | --- | --- |
-| H01 | `matmul_1`，43行 | `BaseTransform.get_geometry_v1` | `base_transform_get_geometry_v1`，helper lookup在322行 |
-| H02 | `matmul_2`，60行 | `BaseTransform.get_geometry_v1` | `base_transform_get_geometry_v1`，helper lookup在325行 |
-| H03 | `matmul_3`，74行 | `BaseTransform.get_geometry_v1` | `base_transform_get_geometry_v1`，helper lookup在333行 |
-| H04 | `extract_metas`，84行 | `BaseTransform.forward` | `base_transform_forward`，helper lookup在429行 |
-| H05 | `down_sample`，110行 | `LSSTransform.forward` | `ls_transform_forward`，helper lookup在461行 |
-| H06 | `initialize_queries_and_bev`，119行 | `MapTRPerceptionTransformer.forward` | `transformer_forward`，helper lookup在509行 |
-| H07 | `compute_decoder_predictions`，146行 | `MapTRv2Head.forward` | `head_forward`，helper lookup在584行 |
-| H08 | `prepare_transformer_inputs`，216行 | `MapTRv2Head.forward` | `head_forward`，helper lookup在554行 |
+| H01 | `matmul_1`，45行 | `BaseTransform.get_geometry_v1` | `base_transform_get_geometry_v1`，helper lookup在324行 |
+| H02 | `matmul_2`，62行 | `BaseTransform.get_geometry_v1` | `base_transform_get_geometry_v1`，helper lookup在327行 |
+| H03 | `matmul_3`，76行 | `BaseTransform.get_geometry_v1` | `base_transform_get_geometry_v1`，helper lookup在335行 |
+| H04 | `extract_metas`，86行 | `BaseTransform.forward` | `base_transform_forward`，helper lookup在415行 |
+| H05 | `down_sample`，112行 | `LSSTransform.forward` | `ls_transform_forward`，helper lookup在447行 |
+| H06 | `initialize_queries_and_bev`，121行 | `MapTRPerceptionTransformer.forward` | `transformer_forward`，helper lookup在495行 |
+| H07 | `compute_decoder_predictions`，148行 | `MapTRv2Head.forward` | `head_forward`，helper lookup在570行 |
+| H08 | `prepare_transformer_inputs`，218行 | `MapTRv2Head.forward` | `head_forward`，helper lookup在540行 |
 
-BaseTransform.forward 的重建还带有5D BEV布局路径；因此整个reference_boundaries组的开/关不一定是仅改变torch.compile的对照。这里不展开布局优化或推荐其默认适用性。
+BaseTransform.forward 的重建还带有5D BEV布局路径（bc8ced4 起 `_bev_pool_5d` 改为调用 `bev_pool_fix.normalize_bev_pool_layout`，并在已打补丁的 bev_pool 返回 5D 时直接使用）；因此整个reference_boundaries组的开/关不一定是仅改变torch.compile的对照。这里不展开布局优化或推荐其默认适用性。
 
 ## 参数、能力与准备/调用阶段
 
@@ -66,7 +67,7 @@ BaseTransform.forward 的重建还带有5D BEV布局路径；因此整个referen
 
 ## helper 缓存与活动 mode
 
-reference.py:270–285使用模块级 `_COMPILED` 与 `_ACTIVE_MODE`：
+reference.py:272–287使用模块级 `_COMPILED` 与 `_ACTIVE_MODE`：
 
 1. _prepare_helpers在全局关闭时直接返回，不重置cache或active mode；否则读取options.mode（默认no-cudagraphs）并设置active mode。
 2. 每个helper按 `(name, mode)` 创建/缓存compile包装；重复准备同一mode复用，切换mode创建另一组，切回可复用旧项。缓存的是包装，不能据此声称已存在后端图。
@@ -77,9 +78,11 @@ reference.py:270–285使用模块级 `_COMPILED` 与 `_ACTIVE_MODE`：
 
 ## assigner：独立 opt-in，不等于静态化开关
 
-catalog.py:197–229的maptrv2.assigner声明替换assign、loss和_get_target_single，运行条件static_assigner_available还要求compile/dynamo API可用且静态化未关闭。这里只记录编译入口与条件，不展开GT静态化实现。
+catalog.py:247–279的maptrv2.assigner声明替换assign、loss和_get_target_single，运行条件static_assigner_available还要求compile/dynamo API可用且静态化未关闭。这里只记录编译入口与条件，不展开GT静态化实现。
 
-assigner.py:274–315：`TURBO_PHYSAI_MAPTRV2_ASSIGN_COMPILE` 缺省为0；不等于1时直接调用_assign_no_grad。等于1且_COMPILED_ASSIGN为空时，编译_assign_no_grad，mode固定为max-autotune-no-cudagraphs；随后复用单一槽中的包装。该函数未接受可配置mode，也不按mode建立字典。
+assigner.py:273–314：代码里 `TURBO_PHYSAI_MAPTRV2_ASSIGN_COMPILE` 缺省为0；不等于1时直接调用_assign_no_grad。等于1且_COMPILED_ASSIGN为空时，编译_assign_no_grad，mode固定为max-autotune-no-cudagraphs；随后复用单一槽中的包装。该函数未接受可配置mode，也不按mode建立字典。
+
+缺省值分两层看：6fdd1d9 的 runtime.yaml 没有该变量，所以"代码缺省"和"随包运行时配置"一致，assign 不编译；bc8ced4 的 runtime.yaml:43 把它设为 "1"，随包配置下 assign 编译，除非调用方自行覆盖。核对 assign 是否真在编译，要看进程里最终生效的环境变量，不能只读 assigner.py。recipe 注释还要求 maptrv2.ddp_static_graph 与 maptrv2.assigner 配对：静态图假设自动求导图固定，由 pad_to_static_list 提供。
 
 assign函数本身不读取全局关闭；通过catalog条件才有额外门控。直接调用它与完整引擎分派不同。独立开关从1切回0会选择普通_assign_no_grad，但旧cache不会被清空，再启用复用；编译创建/执行异常也未在这里捕获。
 
@@ -104,13 +107,13 @@ assign函数本身不读取全局关闭；通过catalog条件才有额外门控�
 
 ## 固定来源（可选追溯，非运行依赖）
 
-- [catalog.py](https://github.com/zhaobx01/TurboPhysAI/blob/6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980/turbo_physai/optimizations/models/maptrv2_optimization/catalog.py)；采集内容SHA256：`121fd525f2ffa1b833cbc3440de6dcf165a359ba44c2869a63f66ad2bb8e3205`。
-- [compile.py](https://github.com/zhaobx01/TurboPhysAI/blob/6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980/turbo_physai/optimizations/models/maptrv2_optimization/compile.py)；采集内容SHA256：`a0122678314a094b250b89221e621d4fe03f57ebe7b0449fa712bfe87b92735e`。
-- [compat.py](https://github.com/zhaobx01/TurboPhysAI/blob/6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980/turbo_physai/optimizations/models/maptrv2_optimization/compat.py)；采集内容SHA256：`f75353861d115c8adeea6318f2c5fd1c8970bbd4e3a74dbed9a984fcb77ffc32`。
-- [reference.py](https://github.com/zhaobx01/TurboPhysAI/blob/6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980/turbo_physai/optimizations/models/maptrv2_optimization/reference.py)；采集内容SHA256：`a7673c17819c406f9d0d7808db0e61de1f0fee911146e8afbb0ce9195075e600`。
-- [assigner.py](https://github.com/zhaobx01/TurboPhysAI/blob/6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980/turbo_physai/optimizations/models/maptrv2_optimization/assigner.py)；采集内容SHA256：`c89563ed77dbce480199b3150ed79643e22596b20b6845593fdec3a41c2e300f`。
-- [configs/recipe.yaml](https://github.com/zhaobx01/TurboPhysAI/blob/6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980/turbo_physai/optimizations/models/maptrv2_optimization/configs/recipe.yaml)；采集内容SHA256：`9990b005571aa4b7521b2aeed61b9703e9b07bcf4723f73f624d6e71fb3a1d27`。
-- [configs/optimization.yaml](https://github.com/zhaobx01/TurboPhysAI/blob/6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980/turbo_physai/optimizations/models/maptrv2_optimization/configs/optimization.yaml)；采集内容SHA256：`828bdb4d5cf856b01899c2d7af0c3c1985fb908dd40ea4c4ecc75f9e28afd58f`。
-- [README.md](https://github.com/zhaobx01/TurboPhysAI/blob/6fdd1d96cecd5b9a3d3410f7ff2fadbb3a685980/turbo_physai/optimizations/models/maptrv2_optimization/README.md)；采集内容SHA256：`b2c003d823d15d4aedd919a7e01b14be64711d55efd18b37e6feda51b9422bef`。
+- [catalog.py](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/catalog.py)；采集内容SHA256：`133e7c23d034cac3bf693b666ba10886388af75cf145a48bbff11e101db1079a`。
+- [compile.py](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/compile.py)；采集内容SHA256：`a0122678314a094b250b89221e621d4fe03f57ebe7b0449fa712bfe87b92735e`。
+- [compat.py](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/compat.py)；采集内容SHA256：`5a1b2b8159f83f0fce3b94f992ee30eda9c29bb1ba8966ec30e4efdb06b62328`。
+- [reference.py](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/reference.py)；采集内容SHA256：`8ee4767c0fa4ca9e3e62fcd0d6e0aa2cdbd12b701d367112bea1ce84c5a8d3c9`。
+- [assigner.py](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/assigner.py)；采集内容SHA256：`c892a90795ca466fe9050b44e46ae531762aa0ed8dd0018fc926dd6f9fdb4ae4`。
+- [configs/recipe.yaml](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/configs/recipe.yaml)；采集内容SHA256：`07e026b0b47521da9f138e1dfdc62ec34c1edf4cac1c734850fdee53dadf3a5a`。
+- [configs/runtime.yaml](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/configs/runtime.yaml)；采集内容SHA256：`17f76d3093d1c1897a508dd04b0acbf6957a3f3dd3e046d9059642944ca8e080`。
+- [README.md](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/README.md)；采集内容SHA256：`53156b6d25300f4f5419139492b13b9cf2896dfbd9eeeb38ff901efe51a3d913`。
 
 摘要仅用于历史标识，不需要原始文件或在线复核即可读取/使用本案例。

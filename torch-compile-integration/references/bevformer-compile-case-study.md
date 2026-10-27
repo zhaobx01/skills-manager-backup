@@ -30,12 +30,13 @@
 
 `geometry_sca.py:encoder_forward` 先尝试 `_prefetched_sca_inputs`：
 
-- 没有预取输入时，从 mask 算真实 `index_lengths`，仍调用 `.max().item()` 获取 Python 长度，再向上选择 9728、10240、11264、12288 中的桶，且不超过 query 总容量。
+- 没有预取输入时，从 mask 算真实 `index_lengths`，仍调用 `.max().item()` 获取 Python 长度，再向上选择 9728、10240、11264、12288 中的桶；桶值取 `min(cam_query_mask.size(-1), bucket_len)`，上界是 mask 最后一维的长度。桶值直接写在 `geometry_sca.py` 的元组里，没有 options 开关。
 - 长度大于全部桶时保留实际最大长度，不是固定截断到最大桶。长度为零也可能得到非零桶容量，不能将容量当有效数量。
-- 有预取输入时直接使用预取的 indexes 和 lengths，不经过这段现场分桶；需另核对采集时实际命中的路径，不能推断预取数据也经过同样分桶。
+- 有预取输入时直接使用预取的 indexes 和 lengths，不经过 `geometry_sca.py` 里这段现场分桶。分桶改在数据侧：`data.py` 的 `_prepare_bev_meta_group` 在 numpy 数组上取同一批次内 `index_lengths` 的最大值，用 `bev_meta_cfg['buckets']` 里同样的四个桶值向上取整，上界同样是 mask 最后一维的长度，再按该长度截取 `argsort` 结果。这一步在 CPU 上完成，不产生 GPU 同步。
+- 预取路径的桶值在 `data.py` 的 `build_dataloader` 里硬编码，与现场路径的元组互不引用，改桶值需两处同步。`data.py` 里另有一个带同样桶值的 `_build_bev_meta_prefetch_cfg`，但全仓库没有调用点，不是实际生效的配置来源。预取只在 shuffle 的训练 loader 且 `TURBO_PHYSAI_CUDA_PREFETCH` 为 1 时创建，运行时再由 `ENABLE_BEV_META_PREFETCH` 控制是否计算；关闭时 meta 里没有预取字段，退回现场路径。验收时仍要确认实际命中的是哪条路径。
 - `spatial_cross_attention_forward` 用真实 lengths 构造有效 mask，并在 gather/attention/scatter 路径使用。任何分桶迁移均须覆盖补齐元素不影响有效输出及梯度的契约。
 
-这改变索引承载长度以尝试减少下游编译形状变化，和 Cosmos3 仅调整 Attention Python launch 参数不是同一机制；也没有消除 `.item()` 或保证无重编译。
+这改变索引承载长度以尝试减少下游编译形状变化，和 Cosmos3 仅调整 Attention Python launch 参数不是同一机制；现场路径没有消除 `.item()`，预取路径把取最大长度挪到了数据侧 CPU 上；两条路径都不保证无重编译。
 
 来源：[现场分桶](https://github.com/iMountTai/TurboPhysAI/blob/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models/bevformer/geometry_sca.py#L278)、[有效元素处理](https://github.com/iMountTai/TurboPhysAI/blob/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models/bevformer/geometry_sca.py#L409)。
 

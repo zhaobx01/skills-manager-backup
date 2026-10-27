@@ -93,6 +93,8 @@ AOT 需另外核对导出覆盖、示例 batch/dtype/device/layout、权重绑�
 
 mode/参数必须按当前来源记录，省略 dynamic/fullgraph 时不得借用另一个案例的显式参数。完整例子见 [MapTRv2 包装式 Compile 案例](maptrv2-turbophysai-compile-case-study.md)。
 
+Inductor 环境变量与产物目录属于 runtime 配置，不在 torch.compile 调用参数里，对照时要单独记录。当前各模型 `configs/runtime.yaml` 里可见的设置：MapTRv2 为 `TORCHINDUCTOR_LAYOUT_OPTIMIZATION=1`、`COORDINATE_DESCENT_TUNING=1`、`MAX_AUTOTUNE_CONV_BACKENDS=ATEN`、`CACHE_DIR=/tmp/maptrv2/torchinductor`；BEVFusion 为 `LAYOUT_OPTIMIZATION=1`、`MAX_AUTOTUNE_GEMM_BACKENDS=ATEN`、`CACHE_DIR=/tmp/bevfusion/torchinductor`；BEVFormer 为 `MAX_AUTOTUNE_CONV_BACKENDS=ATEN`；OpenWAM 的 `runtime.optimized.yaml` 为 `COORDINATE_DESCENT_TUNING=1`。MapTRv2 的 yaml 注释称这里的 set 只强制写入值，调用者 shell 里已导出的变量会原样通过，因此复现时要同时记录实际生效的环境，不能只看配置文件。该文件头部注释也写明这些 Inductor 值是调优默认，不是通用要求。缓存目录按模型分开且位于 `/tmp`，其生命周期与跨进程复用是否安全本次未验证；这些设置对编译时间或性能的影响没有测量。
+
 ## 厂商后端与配置隔离说明
 
 保存 torch 构建标识、后端/驱动、设备、容器标签和实际启动命令。不要因为厂商实现复用 torch.cuda 命名就推断是 NVIDIA CUDA。

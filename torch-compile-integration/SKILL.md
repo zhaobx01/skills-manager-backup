@@ -2,7 +2,7 @@
 name: torch-compile-integration
 description: Analyze PyTorch source to choose torch.compile boundaries and insertion points, or implement and benchmark compilation when requested. Use for deciding which model, step, submodule, or tensor function to compile, adding compile switches, or comparing compilation scope. Route existing graph-break diagnosis to debug-graph-breaks when available.
 metadata:
-  version: "1.9.1"
+  version: "1.10.0"
 ---
 
 # Torch Compile Integration
@@ -153,3 +153,5 @@ HTA不可导入、Trace不兼容或部分API失败时，保留原始Trace与源�
 需要多模态子系统采用不同粒度、FSDP1 子模块类型匹配或配置驱动编译入口的实例时，按需阅读 [references/openvla-compile-case-study.md](references/openvla-compile-case-study.md)。案例仅纳入直接 Compile，不扩展为 OpenVLA 全套优化或要求安装其仓库。
 
 需要基线符号包装、缺失 helper 重建、准备/调用阶段开关或缓存实例时，按需阅读 [references/maptrv2-turbophysai-compile-case-study.md](references/maptrv2-turbophysai-compile-case-study.md)。它是独立于旧源码快照的静态案例；无需下载仓库，不把两份来源的模式和实现合并。
+
+需要外部 kernel 注册为 custom_op、为让周围代码进图而做的 Dynamo-safe 改写，或 FSDP1 下 checkpoint_wrapper、预取、compile 的包装顺序与 checkpoint key 兼容时，按需阅读 [references/turbophysai-compile-patterns.md](references/turbophysai-compile-patterns.md)。内容来自静态读源码，没有运行结论和性能数据。
