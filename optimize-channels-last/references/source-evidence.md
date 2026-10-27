@@ -1,0 +1,11 @@
+# TurboPhysAI 源码证据
+
+以下为固定提交的静态源码观察，不代表该路径在任何运行中启用，也不代表正确性或性能已验证。各仓库/分支的文件不同，不能把某模型的结论套用到其他模型。
+
+- **Cosmos3**：[VAE layout](https://github.com/iMountTai/TurboPhysAI/blob/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models/cosmos3/vae/layout.py) 按 4D/5D 转换，检查 5D 输入、权重和缓存格式作为融合路径条件；[共同工具](https://github.com/iMountTai/TurboPhysAI/blob/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/common/pytorch/memory_format.py) 按 Conv2d/Conv3d 分别转换。启发：布局、缓存和融合算子契约要一起验证。
+- **BEVFormer**：[backbone](https://github.com/iMountTai/TurboPhysAI/blob/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models/bevformer/backbone.py) 在图像 backbone 前转换输入；[runtime](https://github.com/iMountTai/TurboPhysAI/blob/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models/bevformer/configs/runtime.yaml) 设置 NHWC 提示和 find mode。配置本身不是测量。
+- **BEVFusion**：[backbone](https://github.com/iMountTai/TurboPhysAI/blob/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models/bevfusion/backbone.py) 先合并 batch/camera，再由环境开关决定转换；[runtime](https://github.com/iMountTai/TurboPhysAI/blob/bb302a6363a06582e303f052c743469c55af65bf/turbo_physai/optimizations/models/bevfusion/configs/runtime.yaml) 提供开关与 MIOpen 设置。注意 view 的输入 stride 契约。
+- **OpenWAM**：[VAE layout](https://github.com/iMountTai/TurboPhysAI/blob/e4528c392096d2ad490e716af6f39ee3603af103/turbo_physai/optimizations/models/openwam/vae_layout.py) 在 eager 与 compiling 分别采用 contiguous 和私有 `force_stride_order`；[runtime](https://github.com/iMountTai/TurboPhysAI/blob/e4528c392096d2ad490e716af6f39ee3603af103/turbo_physai/optimizations/models/openwam/configs/runtime.optimized.yaml) 设置 NHWC/NDHWC 提示。私有接口须验证版本，不能直接当成稳定 API。
+- **MapTRv2**：[runtime](https://github.com/zhaobx01/TurboPhysAI/blob/bc8ced4a4b55e106579502edcb00b47b124f3fe4/turbo_physai/optimizations/models/maptrv2_optimization/configs/runtime.yaml) 设置 NHWC 提示和 find mode；这里的证据仅为运行配置，不证明张量转换或性能归因。
+- **OpenVLA**：所核对的 [runtime](https://github.com/xgbah/TurboPhysAI/blob/e7aaad0202cf2fb7ccf8082765bfba2057e00517/turbo_physai/optimizations/models/openvla/configs/runtime.yaml) 和 [vision_timm.py](https://github.com/xgbah/TurboPhysAI/blob/e7aaad0202cf2fb7ccf8082765bfba2057e00517/turbo_physai/optimizations/models/openvla/vision_timm.py) 未显示 channels-last 转换；这不是全仓库或其他分支没有该优化的证明。
+
