@@ -1,6 +1,16 @@
 # 来源与维护说明
 
-版本：1.9.1；整理日期：2026-10-21。
+版本：1.10.0；整理日期：2026-10-27。
+
+## TurboPhysAI 编译机制补充（v1.10.0）
+
+新增 [TurboPhysAI 编译机制参考](turbophysai-compile-patterns.md)，收录 custom_op 注册、为让周围代码进图而做的 Dynamo-safe 改写、FSDP1 下的包装顺序与 checkpoint key 兼容。P3、P5 补充重编译上限、`torch.compiler.disable` 兜底、静态 assigner 与 DDP static_graph 的同开同关约束、引擎信任校验与 Group 原子安装；decisions.md 补 Inductor 环境变量与缓存目录的记录要求；validation.md 增加"目录注册不等于调用点命中"一项。
+
+修正：BEVFormer 预取说法改为预取侧在 CPU/numpy 上分桶、不触发 GPU 同步；OpenWAM 补充 `ports/joint.py` 中一处全仓库无赋值的不可达回退；OpenVLA 补充逐层编译原因与 text_len_bucket 的关联。MapTRv2 案例重新固定到 zhaobx01/TurboPhysAI 提交 `bc8ced4a4b55e106579502edcb00b47b124f3fe4`，`TURBO_PHYSAI_MAPTRV2_ASSIGN_COMPILE` 的随包运行时默认值相应更新，行号以该提交为准。
+
+本次读取的证据提交（本地克隆的 HEAD）：MapTRv2 main `bc8ced4`；OpenVLA feat/openvla-optimization `e7aaad0`；BEVFormer、BEVFusion、Cosmos3 所在的 iMountTai/TurboPhysAI main `bb302a6`；OpenWAM feat/openwam `e4528c3`。后三者的克隆是浅克隆（grafted），只代表该提交的文件内容，没有核对更早历史。
+
+边界：以上全部来自静态读源码，没有运行模型，也没有性能、精度或重编译次数的实测；新增内容一律不含加速数字。缓存目录位于 `/tmp` 时的生命周期与跨进程复用安全性未验证。
 
 ## P4 图中断处理补丁（v1.9.1）
 

@@ -13,6 +13,8 @@
 
 只纳入直接编译：两种粒度、参数、类型识别和配置驱动入口。checkpoint 外层位置仅作边界背景。BF16 修复、timm 改写、保存键名兼容、其他补丁协作、文本分桶、FA2、fused AdamW、通信、数据加载和 GC 不在本案例的实现指导范围内。
 
+范围内唯一的关联说明：同一分支的 `text_len_bucket.py` 在 collate 阶段把批内文本长度向上取整到 `options.bucket`（默认 8）的倍数，上限为 `model_max_length`，补齐位置的 label 为 IGNORE_INDEX、attention_mask 为 False；它让进入模型的序列长度落在有限的几个值上，但源码没有声明这是为了减少重编译，也没有测量证据。它不属于直接 Compile，只提示迁移时要把输入长度分布与 `dynamic=True` 的行为一起核对。
+
 ## 来源位置与接入关系
 
 主要实现相对 TurboPhysAI 根目录位于 `turbo_physai/optimizations/models/openvla/compile_fsdp1.py`。其中：
@@ -40,6 +42,7 @@ torch.compile(child, mode=compile_mode, fullgraph=False, dynamic=True)
 
 - LLM：以符合条件的 FSDP1 层为单位；源码中启用梯度 checkpoint 时，checkpoint_wrapper 位于 compiled child 外层。这是该实例边界背景，不是对所有版本和模型的统一顺序要求。
 - 视觉：以符合条件的 FSDP1 包装 ViT 塔为单位，而不是为每个 ViT block 分别添加 compile。
+- 逐层的源码理由：`compile_fsdp1.py` 模块 docstring 写明，整模型编译会追踪 `LlamaModel.forward`，其层循环调用 `torch.utils.checkpoint`（checkpoint HOP），Dynamo 无法在被追踪的循环内展开该 HOP，会跳过整帧，LLM 静默退回 eager。这是源码注释中的说法，本次没有运行复现；它解释了为什么这里逐层编译，并把 checkpoint_wrapper 放在 compiled child 外层。
 - 迁移经验：同一模型中的重复结构与独立子系统可以采用不同粒度；需要比较捕获稳定性、启动/重编译成本、融合与实际收益，不规定所有 LLM 逐层或所有视觉塔整体。
 - dynamic=True 尝试动态形状处理，不保证无特化或重编译；fullgraph=False 允许分图，不证明关键部分一定捕获。它们都是本例配置，不覆盖 Skill 的通用决策规则。
 - helper 依赖 FSDP1 的特定类型与私有包装属性；不能直接推广到 FSDP2、不同框架或其他包装层次。

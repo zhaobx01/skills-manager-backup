@@ -73,6 +73,8 @@ checkpoint `_run` 对 vstate、astate、payload 做浅拷贝，将参与重算�
 
 来源：[设置与冻结](https://github.com/iMountTai/TurboPhysAI/blob/e4528c392096d2ad490e716af6f39ee3603af103/turbo_physai/optimizations/models/openwam/settings.py)、[准备模型](https://github.com/iMountTai/TurboPhysAI/blob/e4528c392096d2ad490e716af6f39ee3603af103/turbo_physai/optimizations/models/openwam/__init__.py#L44)、[四份 recipe](https://github.com/iMountTai/TurboPhysAI/tree/e4528c392096d2ad490e716af6f39ee3603af103/turbo_physai/optimizations/models/openwam/configs)。
 
+`ports/joint.py` 的 `run_joint_loop` 路径里有一段 try/except：若 `self._compiled_mot_run_joint_loop` 非空且未开启梯度 checkpoint，则调用它，失败时置 None、记录警告并回退 eager 的 `driver.run_joint_loop`。但在该提交的整个仓库里，这个属性只在此处读取和置 None，没有任何位置赋成可调用对象，所以这条回退目前不可达，不能当作已验证的 fallback 能力；MoT 层与小函数编译的创建和执行，本次读取未发现通用的异常回退，需自行核对。
+
 关闭 compile_mot/compile_vae 不自动关闭 OW03–05，也不移除已经安装的 forward、driver/lru 缓存或私有 dispatcher 标记。使用新进程和明确配置做消融，保持其他计算改写、精度、布局和 checkpoint 条件一致；全部组合关闭与纯 compile 对照不是一回事。编译创建/执行未提供通用异常 fallback，不把报错称为自动回退。
 
 ## 最小验证与当前证据

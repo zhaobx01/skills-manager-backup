@@ -62,9 +62,12 @@
 | 模型做法 | 差异与可借鉴处 | 具体来源 |
 | --- | --- | --- |
 | Cosmos3 | HIP 编译路径只对特定 Attention launch 参数分桶；真实长度保留，并表达形状契约 | [机制与条件](cosmos3-compile-case-study.md#源码与配置对应表) |
-| BEVFormer | 现场路径调整索引承载长度，真实 lengths/mask 保留；预取路径绕过该段，仍有 item | [SCA 分桶](bevformer-compile-case-study.md#sca-长度分桶) |
+| BEVFormer | 现场路径调整索引承载长度，真实 lengths/mask 保留，仍有 item；预取路径绕过该段，改在数据侧 CPU 上用同一组桶分桶，无 GPU 同步 | [SCA 分桶](bevformer-compile-case-study.md#sca-长度分桶) |
 | MapTRv2 | 固定容量 GT、mask/length 与空分支是语义契约，不等同于参数分桶 | [GT 契约](maptrv2-case-study.md#重点契约固定容量-gt-并非只加装饰器) |
 | OpenWAM | 选择性动态文本轴、静态归约维和跨 eager 边界的标记传递；保留 0/1 特化 | [动态性与边界](openwam-compile-case-study.md#动态标记与-eager-边界) |
+| Cosmos3 | 缓存上限由 `compile_options.py` 统一抬高：传入的 recompile_limit 取不低于 64，cache_size_limit 不低于 512。例如 recipe 传 8 也按 64 生效。这是对已有分桶的兜底，不是去特化的手段 | [C08](cosmos3-compile-case-study.md#源码与配置对应表) |
+| OpenWAM | SAC 的 `_call` 始终经 `torch.compiler.disable` 进入。源码注释称，触顶回退到 eager 的区域不能让 Dynamo 再追踪 SAC 区域；薄分派器另用 `skip_code` 避免按可调用对象重复编译，直到 recompile_limit | [内外层分派](openwam-compile-case-study.md#内外层分派与-checkpoint-状态) |
+| MapTRv2 | 静态 assigner 把 GT 侧补到固定长度，DDP 的 `static_graph=True` 假定每步自动求导图不变，源码称两者要同开或同关；该约束写在 `ddp.py` 与 `catalog.py` 的 `_STATIC_ASSIGNER_CONDITION` 中，本次未运行确认 | [GT 契约](maptrv2-case-study.md#重点契约固定容量-gt-并非只加装饰器) |
 
 **最小验证**：测零、桶两侧、上限与超限，检查有效元素映射、mask、输出/梯度；记录预热后重编译、版本数及内存。先后使用相同输入分布，不用更规整数据制造收益。
 
@@ -111,6 +114,7 @@
 | BEVFusion | 先准备 Group 时显式选择改写函数；类/实例/方法关闭及 disable 状态不同 | [顺序与关闭](bevfusion-compile-case-study.md#包装顺序与关闭路径) |
 | Cosmos3 | 关闭替换可能恢复基线已有 AOT；整个 Group 组合还改变布局 | [失败与关闭](cosmos3-compile-case-study.md#失败与关闭路径) |
 | OpenWAM | 从已安装 Group 汇总并冻结配置；大块与小函数开关独立，关闭不撤销已有包装 | [配置与消融](openwam-compile-case-study.md#配置冻结初始化与消融) |
+| 共享 engine（`engine/checking/checker.py`、`engine/__init__.py`） | 每个替换目标做 `source.identity` 检查：对原函数算 source_hash 与 ast_hash，对照配置 trust 里的 `source_hashes`/`ast_hashes`，命中任一为通过，无信任值为不适用，取不到为未知，不符为失败；可用 `force_groups` 越过可覆盖项。BEVFormer、BEVFusion、Cosmos3、OpenWAM、OpenVLA 的配置含这些字段；MapTRv2 在 `bc8ced4` 的目录里没有。Group 声明为原子单元，被阻止或回滚的 Group 连同依赖项一并隔离，其余 Group 继续；每个进程只允许应用一次，回滚失败是终止错误 | [包装式接入](decisions.md) |
 
 **最小验证**：首次关闭/开启、已启用后关闭、重复入口、mode 改变和异常分别检查。原实现、重构后 eager、相同重构后 compiled 三组用于混合改动归因；给出真实启停命令，不暗示自动回退。
 
