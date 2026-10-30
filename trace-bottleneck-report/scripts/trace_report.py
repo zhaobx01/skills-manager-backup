@@ -607,7 +607,7 @@ def build_ranking(ranks, detail_rank):
 
 
 # --------------------------------------------------------------------------- 旁证
-def read_run_record(run_dir, trace_steps_ms):
+def read_run_record(run_dir, trace_steps_ms, env_prefixes=(), warmup_steps=10):
     out = {"dir": str(run_dir)}
     cmd = Path(run_dir) / "command.json"
     if cmd.exists():
@@ -628,9 +628,7 @@ def read_run_record(run_dir, trace_steps_ms):
 
             out["global_batch_size"] = arg("--global_batch_size", "--global-batch-size") or env.get("GLOBAL_BATCH_SIZE")
             out["num_gpus"] = arg("--num_gpus", "--num-gpus", "--nproc_per_node") or env.get("NUM_GPUS")
-            out["with_stack_flag"] = ("--profiler-with-stack" in joined) and ("--no-profiler-with-stack" not in joined)
-            out["profiler_flags"] = [t for t in joined if t.startswith("--profiler") or t == "--enable-profiling"]
-            keep = ("GR00T_", "HIP_", "NCCL_", "RCCL_", "OMP_", "TORCH_", "PYTORCH_", "CUDA_", "GPU_")
+            keep = ("HIP_", "NCCL_", "RCCL_", "OMP_", "TORCH_", "PYTORCH_", "CUDA_", "GPU_") + tuple(env_prefixes)
             out["env"] = {k: v for k, v in env.items() if k.startswith(keep) or k in
                           ("GLOBAL_BATCH_SIZE", "NUM_GPUS", "DATALOADER_NUM_WORKERS", "MAX_STEPS")}
         except Exception as exc:  # 旁证读取失败不影响主流程
@@ -642,8 +640,8 @@ def read_run_record(run_dir, trace_steps_ms):
             try:
                 d = json.loads(f.read_text(encoding="utf-8"))
                 secs = [float(x) for x in d.get("step_seconds", [])]
-                if len(secs) > 10:
-                    medians.append(statistics.median(secs[10:]))
+                if len(secs) > warmup_steps:
+                    medians.append(statistics.median(secs[warmup_steps:]))
                 if len(secs) >= 3:
                     tails.append(statistics.mean(secs[-3:]))
                 if d.get("max_memory_allocated_bytes") is not None:
@@ -651,11 +649,12 @@ def read_run_record(run_dir, trace_steps_ms):
             except Exception:
                 continue
         if medians:
-            out["step_ms_median_after_10"] = statistics.median(medians) * 1000
+            out["step_ms_median_after_warmup"] = statistics.median(medians) * 1000
         if tails:
             out["step_ms_last3_mean"] = statistics.median(tails) * 1000
         if peaks:
             out["peak_alloc_gib"] = max(peaks) / 2 ** 30
+        out["warmup_steps"] = warmup_steps
         out["trace_step_ms"] = trace_steps_ms
     return out
 
@@ -898,12 +897,10 @@ def render(summary, P):
         out.append(f"- 来源:{run['dir']}")
         if run.get("global_batch_size"):
             out.append(f"- 全局 batch:{run['global_batch_size']};卡数:{run.get('num_gpus', '—')}")
-        if "with_stack_flag" in run:
-            out.append(f"- 采集命令{'带' if run['with_stack_flag'] else '不带'} --profiler-with-stack(带栈会改变 CPU 计时)")
         if run.get("env"):
             out.append("- 关键环境:" + ", ".join(f"{k}={v}" for k, v in sorted(run["env"].items())[:12]))
-        if run.get("step_ms_median_after_10") or run.get("step_ms_last3_mean"):
-            out.append(f"- step_metrics 真实 step 时间:第 11 步起中位数 {f2(run.get('step_ms_median_after_10'))} ms,"
+        if run.get("step_ms_median_after_warmup") or run.get("step_ms_last3_mean"):
+            out.append(f"- step_metrics 真实 step 时间:第 {run.get('warmup_steps', 10) + 1} 步起中位数 {f2(run.get('step_ms_median_after_warmup'))} ms,"
                        f"末 3 步均值 {f2(run.get('step_ms_last3_mean'))} ms;trace 所选 step {f2(d['step_ms'])} ms(含 profiler 开销,不作测速)")
         if run.get("peak_alloc_gib"):
             out.append(f"- 峰值显存分配:{run['peak_alloc_gib']:.1f} GiB")
@@ -962,13 +959,15 @@ def main(argv=None):
     ap.add_argument("--trace-dir", required=True, help="含 trace_rank_*.json 的目录")
     ap.add_argument("-o", "--output-dir", required=True, help="新输出目录(已存在则拒绝覆盖)")
     ap.add_argument("--name", default=None, help="报告标题中的名称,默认用 trace 目录名")
-    ap.add_argument("--run-dir", help="含 command.json / step_metrics 的运行目录")
+    ap.add_argument("--env-prefix", default="", help="逗号分隔的额外环境变量前缀,运行记录里按此保留(如 MYPROJ_)")
+    ap.add_argument("--warmup-steps", type=int, default=10, help="计算真实 step 中位数时跳过的前 N 步")
+    ap.add_argument("--run-dir", help="运行记录目录:可含 command.json({command:[...], environment:{...}}) 与 step_metrics/rank-*.json({step_seconds:[...], max_memory_allocated_bytes})")
     ap.add_argument("--compile-log", help="TORCH_LOGS=graph_breaks,recompiles 的输出文件")
     ap.add_argument("--key-averages", help="含 key_averages 表的文本(如 train.log)")
     ap.add_argument("--hta-dir", help="已有的 HTA 输出目录")
     ap.add_argument("--step", type=int, default=None, help="指定 ProfilerStep 编号,默认取中间 step")
     ap.add_argument("--rules", help="补充/覆盖分类规则的 JSON 文件")
-    ap.add_argument("--project-hint", default="", help="逗号分隔的项目路径片段,用于识别项目帧(如 gr00t/)")
+    ap.add_argument("--project-hint", default="", help="逗号分隔的项目路径片段,用于识别项目帧(如 mypkg/)")
     ap.add_argument("--jobs", type=int, default=1, help="并行解析的 rank 数")
     ap.add_argument("--small-gap-us", type=float, default=50)
     ap.add_argument("--big-copy-mib", type=float, default=1)
@@ -1043,7 +1042,9 @@ def main(argv=None):
     if not run_dir and (Path(args.trace_dir).parent / "command.json").exists():
         run_dir = str(Path(args.trace_dir).parent)
     if run_dir:
-        evidence["run"] = read_run_record(run_dir, results[detail]["step_ms"])
+        evidence["run"] = read_run_record(
+            run_dir, results[detail]["step_ms"],
+            tuple(x for x in args.env_prefix.split(",") if x), args.warmup_steps)
     for key, fn, value in (("compile_log", read_compile_log, args.compile_log),
                            ("key_averages", read_key_averages, args.key_averages), ("hta", read_hta, args.hta_dir)):
         if value:

@@ -238,8 +238,8 @@ def main():
     run_dir = tmp / "run"
     (run_dir / "step_metrics").mkdir(parents=True)
     (run_dir / "command.json").write_text(json.dumps({
-        "command": ["torchrun", "--nproc_per_node=8", "x.py", "--global_batch_size", "768", "--profiler-with-stack"],
-        "environment": {"OMP_NUM_THREADS": "1", "GR00T_X": "1", "SECRET": "no"}}))
+        "command": ["torchrun", "--nproc_per_node=8", "x.py", "--global_batch_size", "768"],
+        "environment": {"OMP_NUM_THREADS": "1", "MYPROJ_X": "1", "SECRET": "no"}}))
     (run_dir / "step_metrics" / "rank-00.json").write_text(json.dumps(
         {"step_seconds": [1.0] * 10 + [1.5, 1.4, 1.6, 1.5], "max_memory_allocated_bytes": 2 ** 31}))
     clog = tmp / "compile.log"
@@ -258,15 +258,15 @@ def main():
     out2 = tmp / "out2"
     assert tr.main(["--trace-dir", str(plain), "-o", str(out2), "--rules", str(rules), "--run-dir", str(run_dir),
                     "--compile-log", str(clog), "--key-averages", str(ka), "--hta-dir", str(hta),
-                    "--peak-h2d-gbs", "10", "--peak-comm-gbs", "20"]) == 0
+                    "--peak-h2d-gbs", "10", "--peak-comm-gbs", "20", "--env-prefix", "MYPROJ_"]) == 0
     s2 = json.loads((out2 / "summary.json").read_text())
     rep2 = (out2 / "report.md").read_text()
     assert any(r["category"] == "我的类" for r in s2["ranks"]["0"]["T1"]) and s2["ranks"]["0"]["unclassified_pct"] == 0
     assert "占峰值%" in rep2
     ev2 = s2["evidence"]
-    assert ev2["run"]["global_batch_size"] == "768" and ev2["run"]["with_stack_flag"] is True
-    assert "SECRET" not in ev2["run"]["env"] and ev2["run"]["env"]["OMP_NUM_THREADS"] == "1"
-    close(ev2["run"]["step_ms_median_after_10"], 1500.0, 1e-6)
+    assert ev2["run"]["global_batch_size"] == "768"
+    assert "SECRET" not in ev2["run"]["env"] and ev2["run"]["env"]["OMP_NUM_THREADS"] == "1" and ev2["run"]["env"]["MYPROJ_X"] == "1"
+    close(ev2["run"]["step_ms_median_after_warmup"], 1500.0, 1e-6)
     assert ev2["compile_log"]["graph_break_lines"] == 1 and ev2["compile_log"]["recompile_lines"] >= 1
     assert ev2["compile_log"]["top_recompile_reasons"]
     assert ev2["key_averages"]["top"][0]["name"] == "gemm_a"

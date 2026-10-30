@@ -16,23 +16,28 @@
 
 采集后检查:rank 文件数 = 卡数;每个文件含 3 个左右的 `ProfilerStep#N`;有 `kernel` 事件;文件大小在各 rank 间接近。
 
-示例(GR00T 微调项目):
+示例(通用 `torch.profiler`;参数名按项目实际接入方式调整):
 
-```bash
-# 计时用:不带栈
---enable-profiling --profiler-skip-first 20 --profiler-wait 1 --profiler-warmup 5 \
---profiler-active 3 --profiler-repeat 1 --no-profiler-with-stack
-# 归因用:带栈(另采一次)
---enable-profiling ... --profiler-with-stack
+```python
+from torch.profiler import profile, schedule, ProfilerActivity
+prof = profile(
+    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],   # ROCm/HIP 同样用 CUDA 这一项
+    schedule=schedule(skip_first=20, wait=1, warmup=5, active=3, repeat=1),
+    with_stack=False,                                           # 计时用 False;归因另采一次改 True
+    on_trace_ready=lambda p: p.export_chrome_trace(f"{out_dir}/trace_rank_{rank}_iter_{p.step_num}.json"),
+)
+# 训练循环每步结束调用 prof.step()
 ```
 
-输出在 `<output_dir>/profiling/trace_rank_<rank>_iter_<step>.json`,rank 0 同时把 `key_averages()` 表打印到日志。
+各 rank 都要导出;文件名保持 `trace_rank_<rank>_*.json`。如需 rank 0 的 key_averages,在导出时另存 `p.key_averages().table(sort_by="self_cuda_time_total")`。
 
-## 2. 运行记录(推荐)
+## 2. 运行记录(推荐,格式由用户的训练脚本自行写出)
 
-- `command.json`:启动命令和环境变量(batch、卡数、`OMP_NUM_THREADS`、各开关)。
-- `step_metrics/rank-*.json`:每步 `step_seconds`、峰值显存;**不受 profiler 影响**,用来报真实 step 时间。
-- 生效配置:确认 profiler 窗口、是否带栈、编译开关。
+脚本只认下面两种可选文件,字段缺失即跳过,**不要求任何特定框架**:
+
+- `<run-dir>/command.json`:`{"command": ["启动命令", "参数", ...], "environment": {"NAME": "value"}}`。用于报 batch/卡数(识别 `--global_batch_size`/`--num_gpus`/`--nproc_per_node` 或环境 `GLOBAL_BATCH_SIZE`/`NUM_GPUS`)和环境开关。环境变量默认只保留 `HIP_/NCCL_/RCCL_/OMP_/TORCH_/PYTORCH_/CUDA_/GPU_` 前缀,项目自己的开关前缀用 `--env-prefix` 追加;写文件时请自行剔除密钥。
+- `<run-dir>/step_metrics/rank-<n>.json`:`{"step_seconds": [每步墙钟秒数...], "max_memory_allocated_bytes": N}`。在训练循环里用 `time.perf_counter()` 记每步间隔、结束时写出即可;**不受 profiler 影响**,用来报真实 step 时间(`--warmup-steps` 控制跳过前几步)。
+- 另建议人工核对:profiler 窗口、是否带栈、编译开关,写进报告口径说明。
 
 ## 3. 编译日志(可选,单独采集)
 
