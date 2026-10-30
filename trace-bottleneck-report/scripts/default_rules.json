@@ -1,0 +1,202 @@
+{
+  "_说明": "分类与事件名规则。--rules 传入的文件中,kernel_categories 会排在内置规则之前(优先匹配),其余键直接覆盖内置值。",
+  "kernel_categories": [
+    {
+      "name": "通信",
+      "kind": "comm",
+      "patterns": [
+        "^nccl",
+        "^rccl",
+        "ncclDevKernel",
+        "ncclKernel"
+      ]
+    },
+    {
+      "name": "attention",
+      "kind": "compute",
+      "patterns": [
+        "flash",
+        "fmha",
+        "attn",
+        "attention"
+      ]
+    },
+    {
+      "name": "GEMM",
+      "kind": "compute",
+      "patterns": [
+        "^Cijk_",
+        "^Custom_Cijk_",
+        "gemm",
+        "cutlass",
+        "cublas",
+        "hipblas",
+        "rocblas",
+        "tensile",
+        "ck_tile",
+        "wgrad",
+        "dgrad",
+        "nvjet",
+        "xmma"
+      ]
+    },
+    {
+      "name": "conv",
+      "kind": "compute",
+      "patterns": [
+        "conv(?!ert)",
+        "miopen",
+        "cudnn"
+      ]
+    },
+    {
+      "name": "optimizer",
+      "kind": "compute",
+      "patterns": [
+        "multi_tensor_apply",
+        "adam(w)?_?functor",
+        "adam_?(w|update)",
+        "lamb_?(stage|functor)",
+        "^sgd"
+      ]
+    },
+    {
+      "name": "norm/softmax",
+      "kind": "compute",
+      "patterns": [
+        "softmax",
+        "layer_?norm",
+        "rms_?norm",
+        "batch_?norm",
+        "group_?norm",
+        "gammabeta",
+        "cuapplylayernorm",
+        "cucomputegrad"
+      ]
+    },
+    {
+      "name": "triton(compiled)",
+      "kind": "compute",
+      "patterns": [
+        "^triton_"
+      ]
+    },
+    {
+      "name": "elementwise/reduce/copy",
+      "kind": "compute",
+      "patterns": [
+        "elementwise",
+        "reduce",
+        "vectorized",
+        "index",
+        "scatter",
+        "gather",
+        "catarray",
+        "copy",
+        "fill",
+        "sort",
+        "cumsum",
+        "unrolled",
+        "dropout",
+        "write_indices",
+        "scan"
+      ]
+    }
+  ],
+  "unclassified_name": "未分类",
+  "transfer_category": "搬运(memcpy/memset)",
+  "sync_events": {
+    "device_sync": [
+      "hipDeviceSynchronize",
+      "cudaDeviceSynchronize"
+    ],
+    "stream_sync": [
+      "hipStreamSynchronize",
+      "cudaStreamSynchronize"
+    ],
+    "event_sync": [
+      "hipEventSynchronize",
+      "cudaEventSynchronize"
+    ],
+    "scalar_read": [
+      "aten::item",
+      "aten::is_nonzero"
+    ],
+    "data_dependent": [
+      "aten::nonzero",
+      "aten::masked_select"
+    ]
+  },
+  "blocking_sync_groups": [
+    "device_sync",
+    "stream_sync",
+    "event_sync"
+  ],
+  "collective_kernel_regex": "(?:nccl|rccl)\\w*?Kernel_([A-Za-z]+)",
+  "collective_annotation_names": {
+    "AllReduce": [
+      "allreduce",
+      "all_reduce"
+    ],
+    "AllGather": [
+      "allgather",
+      "all_gather"
+    ],
+    "ReduceScatter": [
+      "reducescatter",
+      "reduce_scatter"
+    ],
+    "Broadcast": [
+      "broadcast"
+    ],
+    "AllToAll": [
+      "alltoall",
+      "all_to_all"
+    ]
+  },
+  "dtype_bytes": {
+    "Float": 4,
+    "BFloat16": 2,
+    "Half": 2,
+    "Double": 8,
+    "Long": 8,
+    "Int": 4,
+    "Short": 2,
+    "Byte": 1,
+    "Char": 1,
+    "Bool": 1
+  },
+  "library_prefixes": [
+    "torch/",
+    "torchvision/",
+    "torchaudio/",
+    "transformers/",
+    "accelerate/",
+    "deepspeed/",
+    "flash_attn/",
+    "apex/",
+    "triton/",
+    "numpy/",
+    "scipy/",
+    "pandas/",
+    "PIL/",
+    "huggingface_hub/",
+    "safetensors/",
+    "tqdm/",
+    "abc.py",
+    "_collections_abc.py",
+    "contextlib.py",
+    "functools.py",
+    "threading.py",
+    "typing.py",
+    "copy.py",
+    "enum.py",
+    "dataclasses.py",
+    "collections/",
+    "multiprocessing/",
+    "runpy.py",
+    "site-packages",
+    "dist-packages",
+    "/lib/python"
+  ]
+}
