@@ -82,7 +82,7 @@ kernel 按名称正则分类(内置 CUDA+HIP 规则,`--rules` 可补充,补充�
 
 ## 旁证
 
-- **运行记录**:`step_metrics` 的 `step_seconds` 给"第 11 步起中位数"和"末 3 步均值",与 trace 窗口不保证逐步对齐。
+- **运行记录**:`step_metrics` 的 `step_seconds` 给"跳过 `--warmup-steps`(默认 10)步后的中位数"和"末 3 步均值",与 trace 窗口不保证逐步对齐。
 - **编译日志**:按关键字统计 "graph break"、"recompil" 及 guard 失败原因,格式随版本变化,属 `[推断]`。
 - **key_averages**:按表头找 `Self CUDA` 列,取 top5。
 - **HTA**:只读 CSV 摘要;其窗口与过滤规则与本报告不同。

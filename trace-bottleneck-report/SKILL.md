@@ -12,7 +12,7 @@ description: 从已采集的 PyTorch Profiler trace(多 rank)及可选旁证数�
 | 数据 | 必需 | 说明 |
 | --- | --- | --- |
 | Profiler trace | 是 | `trace_rank_<rank>_*.json`(可 `.gz`),所有 rank,同一次运行,含设备 kernel 事件和 `ProfilerStep` |
-| 运行记录 | 否 | `command.json`、`step_metrics/rank-*.json`;给出 batch/卡数/开关和不受 profiler 影响的真实 step 时间 |
+| 运行记录 | 否 | 通用格式见 [collection.md](references/collection.md) §2(`command.json`、`step_metrics/rank-*.json`,由用户的训练脚本自行写出);给出 batch/卡数/环境开关和不受 profiler 影响的真实 step 时间 |
 | 编译日志 | 否 | `TORCH_LOGS=graph_breaks,recompiles` 的输出,统计图断/重编译次数及原因 |
 | key_averages 文本 | 否 | rank 0 的算子表(常在 `train.log`),只作 top 算子交叉校验 |
 | HTA 输出 | 否 | 已有的 `temporal/idle/overlap` CSV,只读不运行 |
@@ -27,7 +27,7 @@ description: 从已采集的 PyTorch Profiler trace(多 rank)及可选旁证数�
    ```bash
    python3 scripts/trace_report.py --trace-dir <trace 目录> -o <新输出目录> \
        [--run-dir <运行目录>] [--compile-log <日志>] [--key-averages <文本>] [--hta-dir <目录>] \
-       [--project-hint gr00t/] [--jobs 4]
+       [--project-hint mypkg/] [--env-prefix MYPROJ_] [--jobs 4]
    ```
 
    输出目录必须不存在,脚本拒绝覆盖。`--trace-dir` 的上级目录若含 `command.json`,自动当作运行记录。
@@ -46,6 +46,8 @@ description: 从已采集的 PyTorch Profiler trace(多 rank)及可选旁证数�
 | `--min-impact-pct` | 0.5 | 调用点 GPU 空闲占 step 低于此值判"影响小",不报饥饿、不进排行 |
 | `--slow-rank-ms` | 10 | 最慢 rank 空闲比 rank 0 多于此值时补一份该 rank 的空闲归因 |
 | `--peak-h2d-gbs` / `--peak-comm-gbs` | 无 | 提供硬件峰值才显示"带宽占峰值%",trace 里没有峰值,不猜 |
+| `--env-prefix P1_,P2_` | 空 | 运行记录里额外保留的环境变量前缀(内置只保留 HIP/NCCL/RCCL/OMP/TORCH/PYTORCH/CUDA/GPU) |
+| `--warmup-steps N` | 10 | 计算真实 step 中位数时跳过的前 N 步 |
 | `--jobs N` | 1 | 并行解析 rank(单个 rank 约 1.3 GB 内存) |
 
 ## 输出
